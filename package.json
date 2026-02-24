@@ -1,0 +1,54 @@
+{
+  "name": "bayansynth-studio",
+  "version": "0.1.0",
+  "description": "BayanSynth Studio — Vocaloid-inspired Arabic TTS editor",
+  "main": "electron/main.js",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"wait-on http://localhost:5173 && electron .\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && python server.py",
+    "build": "cd frontend && npm run build && electron-builder",
+    "build:frontend": "cd frontend && npm run build",
+    "postinstall": "cd frontend && npm install"
+  },
+  "dependencies": {
+    "electron-is-dev": "^2.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "dev.bayansynth.studio",
+    "productName": "BayanSynth Studio",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "frontend/dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": ["**/*.py", "requirements.txt"]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

@@ -1,0 +1,267 @@
+/* BayanSynth Studio — Main Styles */
+
+:root {
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16213e;
+  --bg-panel: #0f3460;
+  --accent: #e94560;
+  --accent-hover: #ff6b81;
+  --text: #e0e0e0;
+  --text-dim: #8892b0;
+  --border: #2a3a5c;
+  --success: #00d2a0;
+  --warning: #ffc107;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, 'Noto Sans Arabic', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text);
+  overflow: hidden;
+}
+
+/* ── Layout ─────────────────────────────────────────────────── */
+.studio-layout {
+  display: grid;
+  grid-template-rows: 48px 1fr 280px 36px;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ── Top Bar ────────────────────────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar h1 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 1px;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Main Area (Editor + Properties) ─────────────────────── */
+.main-area {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  overflow: hidden;
+}
+
+.editor-panel {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.properties-panel {
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.properties-panel h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+/* ── Timeline ────────────────────────────────────────────── */
+.timeline {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  padding: 8px;
+  overflow-x: auto;
+  position: relative;
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.timeline-track {
+  position: relative;
+  height: 60px;
+  background: #0d1b3e;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  overflow: hidden;
+}
+
+.timeline-node {
+  position: absolute;
+  height: 52px;
+  top: 4px;
+  min-width: 80px;
+  background: linear-gradient(135deg, var(--bg-panel), #1a3a6e);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.timeline-node:hover {
+  box-shadow: 0 0 12px rgba(233, 69, 96, 0.4);
+  transform: translateY(-1px);
+}
+
+.timeline-node.selected {
+  border-color: var(--success);
+  box-shadow: 0 0 16px rgba(0, 210, 160, 0.3);
+}
+
+.waveform-container {
+  height: 120px;
+  background: #0d1b3e;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+/* ── Status Bar ──────────────────────────────────────────── */
+.statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-panel);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+.btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-sm {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+/* ── Form Elements ───────────────────────────────────────── */
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.form-group textarea {
+  direction: rtl;
+  text-align: right;
+  font-family: 'Noto Sans Arabic', 'Segoe UI', sans-serif;
+  resize: vertical;
+}
+
+.form-group input[type="range"] {
+  padding: 0;
+}
+
+/* ── Node Card ───────────────────────────────────────────── */
+.node-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.node-card:hover {
+  border-color: var(--accent);
+}
+
+.node-card.selected {
+  border-color: var(--success);
+}
+
+.node-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.node-card-text {
+  direction: rtl;
+  text-align: right;
+  font-size: 14px;
+  color: var(--text);
+  max-height: 40px;
+  overflow: hidden;
+}
+
+.node-card-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
