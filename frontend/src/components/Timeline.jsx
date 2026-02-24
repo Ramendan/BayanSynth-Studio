@@ -1,14 +1,29 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Stage, Layer, Rect, Text, Line, Group } from 'react-konva';
 
 const PIXELS_PER_SECOND = 100;
 const TRACK_HEIGHT = 80;
 const HEADER_WIDTH = 150;
 
+function getViewportSize() {
+  return {
+    width: window.innerWidth - 320,           // minus properties panel
+    height: window.innerHeight - 48 - 36 - 60, // minus topbar + statusbar + bottombar
+  };
+}
+
 export default function Timeline({ tracks, bgTrack, selectedId, onSelect, onUpdateNode, onUpdateTrack, onAddNode, onRemoveNode, onSynthesizeNode }) {
   const [scale, setScale] = useState({ x: 1, y: 1 });
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [viewport, setViewport] = useState(getViewportSize);
   const stageRef = useRef(null);
+
+  // Keep canvas dimensions in sync with window size
+  useEffect(() => {
+    const onResize = () => setViewport(getViewportSize());
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const handleWheel = (e) => {
     e.evt.preventDefault();
@@ -43,8 +58,8 @@ export default function Timeline({ tracks, bgTrack, selectedId, onSelect, onUpda
     10,
     ...tracks.flatMap(t => t.nodes.map(n => n.start_time + Math.max(n.duration, 1)))
   );
-  const stageWidth = window.innerWidth - 320; // minus properties panel
-  const stageHeight = window.innerHeight - 48 - 36 - 60; // minus topbar, bottombar, statusbar
+  const stageWidth = viewport.width;
+  const stageHeight = viewport.height;
 
   return (
     <div style={{ width: '100%', height: '100%', background: 'var(--bg-primary)', position: 'relative' }}>
@@ -57,6 +72,10 @@ export default function Timeline({ tracks, bgTrack, selectedId, onSelect, onUpda
         x={position.x}
         y={position.y}
         scale={scale}
+        onDragMove={(e) => {
+          // Update continuously so sticky headers track in real time
+          setPosition({ x: e.target.x(), y: e.target.y() });
+        }}
         onDragEnd={(e) => {
           setPosition({ x: e.target.x(), y: e.target.y() });
         }}

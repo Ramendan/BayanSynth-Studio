@@ -13,7 +13,6 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-konva": "^18.2.10",
-    "soundtouchjs": "^0.1.30",
     "wavesurfer.js": "^7.8.0"
   },
   "devDependencies": {

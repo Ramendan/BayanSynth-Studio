@@ -76,10 +76,11 @@ class TimelineNode(BaseModel):
     voice: str | None = None
     speed: float = 1.0
     start_time: float = 0.0  # seconds
-    pitch_shift: float = 0.0  # semitones (future)
+    pitch_shift: float = 0.0  # semitones
     fade_in: float = 0.0
     fade_out: float = 0.0
     volume: float = 1.0
+    seed: int = 42
 
 class Track(BaseModel):
     id: str
@@ -248,6 +249,7 @@ async def export_timeline(req: ExportRequest):
                 node.text,
                 ref_audio=node.voice,
                 speed=node.speed,
+                seed=node.seed,
                 auto_tashkeel=req.auto_tashkeel,
             )
 

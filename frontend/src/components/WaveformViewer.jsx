@@ -28,9 +28,7 @@ export default function WaveformViewer({ audioUrl }) {
         barWidth: 2,
         barGap: 1,
         barRadius: 2,
-        responsive: true,
         normalize: true,
-        backend: 'WebAudio',
       });
 
       wavesurferRef.current = ws;

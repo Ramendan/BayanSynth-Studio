@@ -1,9 +1,28 @@
-import SoundTouch from 'soundtouchjs';
+// AudioEngine — Web Audio API playback with speed + volume control.
+//
+// Note: SoundTouchJS relied on AudioContext.createScriptProcessor which was
+// removed in Chromium 111. Electron 31 ships Chromium 126, so that path
+// crashes silently. We use native BufferSource.playbackRate for speed control
+// (pitch shifts slightly during preview, but export applies real pitch-shift
+// via librosa on the backend). AudioContext is created lazily on first use so
+// we never violate the browser autoplay policy.
+
+let _instance = null;
 
 class AudioEngine {
   constructor() {
-    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this._ctx = null;
     this.sources = new Map();
+  }
+
+  get ctx() {
+    if (!this._ctx) {
+      this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (this._ctx.state === 'suspended') {
+      this._ctx.resume();
+    }
+    return this._ctx;
   }
 
   async loadAudio(url) {
@@ -14,71 +33,56 @@ class AudioEngine {
 
   async playNode(node, onEnd) {
     if (!node.audioUrl) return;
-    
-    const buffer = await this.loadAudio(node.audioUrl);
-    
-    // If speed is 1.0, use native playback
-    if (node.speed === 1.0) {
-      const source = this.ctx.createBufferSource();
-      source.buffer = buffer;
-      
-      const gainNode = this.ctx.createGain();
-      gainNode.gain.value = node.volume || 1.0;
-      
-      source.connect(gainNode);
-      gainNode.connect(this.ctx.destination);
-      
-      source.start(0);
-      source.onended = onEnd;
-      this.sources.set(node.id, { source, gainNode });
-      return;
-    }
 
-    // Use SoundTouchJS for high-quality time stretching
-    const st = new SoundTouch.SoundTouch();
-    st.tempo = node.speed;
-    if (node.pitch_shift) {
-      st.pitchSemitones = node.pitch_shift;
-    }
-    
-    const source = new SoundTouch.WebAudioBufferSource(buffer);
-    const filter = new SoundTouch.SimpleFilter(source, st);
-    
-    const scriptNode = this.ctx.createScriptProcessor(4096, 1, 1);
-    scriptNode.onaudioprocess = (e) => {
-      const l = e.outputBuffer.getChannelData(0);
-      const framesExtracted = filter.extract(l, 4096);
-      if (framesExtracted === 0) {
-        scriptNode.disconnect();
-        if (onEnd) onEnd();
-      }
-    };
-    
+    // Stop any prior playback of this node
+    this.stopNode(node.id);
+
+    const buffer = await this.loadAudio(node.audioUrl);
+
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    // playbackRate shifts pitch slightly during preview but keeps the engine
+    // simple and compatible with all Electron/Chrome versions.
+    source.playbackRate.value = Math.max(0.1, Math.min(4.0, node.speed || 1.0));
+
     const gainNode = this.ctx.createGain();
-    gainNode.gain.value = node.volume || 1.0;
-    
-    scriptNode.connect(gainNode);
+    gainNode.gain.value = Math.max(0, Math.min(2, node.volume || 1.0));
+
+    source.connect(gainNode);
     gainNode.connect(this.ctx.destination);
-    
-    this.sources.set(node.id, { source: scriptNode, gainNode });
+
+    source.start(0);
+    source.onended = () => {
+      this.sources.delete(node.id);
+      if (onEnd) onEnd();
+    };
+
+    this.sources.set(node.id, { source, gainNode });
   }
 
   stopNode(nodeId) {
     const s = this.sources.get(nodeId);
     if (s) {
-      if (s.source.stop) s.source.stop();
-      else s.source.disconnect();
+      try { s.source.stop(); } catch (_) { /* already stopped */ }
+      try { s.source.disconnect(); } catch (_) {}
       this.sources.delete(nodeId);
     }
   }
-  
+
   stopAll() {
-    for (const [id, s] of this.sources.entries()) {
-      if (s.source.stop) s.source.stop();
-      else s.source.disconnect();
+    for (const id of [...this.sources.keys()]) {
+      this.stopNode(id);
     }
-    this.sources.clear();
   }
 }
 
-export const engine = new AudioEngine();
+// Lazy singleton — AudioContext created on first user interaction.
+export function getEngine() {
+  if (!_instance) _instance = new AudioEngine();
+  return _instance;
+}
+
+// Named export kept for backward compatibility with App.jsx import.
+export const engine = new Proxy({}, {
+  get(_, prop) { return getEngine()[prop]; },
+});

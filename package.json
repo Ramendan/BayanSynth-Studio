@@ -5,15 +5,12 @@
   "main": "electron/main.js",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"wait-on http://localhost:5173 && electron .\"",
+    "dev": "concurrently \"npm run dev:frontend\" \"wait-on http://localhost:5173 && electron .\"",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && python server.py",
     "build": "cd frontend && npm run build && electron-builder",
     "build:frontend": "cd frontend && npm run build",
     "postinstall": "cd frontend && npm install"
-  },
-  "dependencies": {
-    "electron-is-dev": "^2.0.0"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
