@@ -50,12 +50,34 @@ export async function listVoices() {
   return data.voices || [];
 }
 
-export async function exportTimeline(nodes, autoTashkeel = true) {
+export async function uploadVoice(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${API_BASE}/voices/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) throw new Error('Upload failed');
+  return res.json();
+}
+
+export async function pitchDetect(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${API_BASE}/pitch_detect`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) throw new Error('Pitch detection failed');
+  return res.json();
+}
+
+export async function exportTimeline(tracks, autoTashkeel = true) {
   const res = await fetch(`${API_BASE}/export`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      nodes,
+      tracks,
       sample_rate: 24000,
       auto_tashkeel: autoTashkeel,
     }),

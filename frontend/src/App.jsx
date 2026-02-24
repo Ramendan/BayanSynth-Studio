@@ -1,10 +1,12 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { synthesize, diacritize, listVoices, exportTimeline } from './api';
+import React, { useState, useCallback, useEffect } from 'react';
+import { synthesize, diacritize, listVoices, exportTimeline, pitchDetect, uploadVoice } from './api';
 import Timeline from './components/Timeline';
 import PropertiesPanel from './components/PropertiesPanel';
 import WaveformViewer from './components/WaveformViewer';
+import { engine } from './AudioEngine';
 
 let nextNodeId = 1;
+let nextTrackId = 1;
 
 function createNode(text = '', overrides = {}) {
   return {
@@ -18,22 +20,37 @@ function createNode(text = '', overrides = {}) {
     fade_out: 0,
     audioUrl: null,
     duration: 0,
+    volume: 1.0,
+    seed: 42,
+    ...overrides,
+  };
+}
+
+function createTrack(name = 'Track 1', overrides = {}) {
+  return {
+    id: `track_${nextTrackId++}`,
+    name,
+    nodes: [],
+    volume: 1.0,
+    mute: false,
+    solo: false,
     ...overrides,
   };
 }
 
 export default function App() {
-  const [nodes, setNodes] = useState([
-    createNode('مَرْحَباً بِكُمْ فِي بَيَانْسِنْث.'),
+  const [tracks, setTracks] = useState([
+    createTrack('Lead Vocal', { nodes: [createNode('مَرْحَباً بِكُمْ فِي بَيَانْسِنْث.')] }),
   ]);
-  const [selectedId, setSelectedId] = useState(nodes[0]?.id);
+  const [selectedId, setSelectedId] = useState(tracks[0].nodes[0]?.id);
   const [voices, setVoices] = useState([]);
   const [status, setStatus] = useState('Ready');
   const [generating, setGenerating] = useState(false);
   const [masterAudioUrl, setMasterAudioUrl] = useState(null);
   const [autoTashkeel, setAutoTashkeel] = useState(true);
+  const [bgTrack, setBgTrack] = useState(null);
 
-  const selectedNode = nodes.find((n) => n.id === selectedId);
+  const selectedNode = tracks.flatMap(t => t.nodes).find((n) => n.id === selectedId);
 
   // Load voices on mount
   useEffect(() => {
@@ -43,36 +60,50 @@ export default function App() {
   }, []);
 
   // ── Node CRUD ──────────────────────────────────────────────
-  const addNode = useCallback(() => {
-    const lastEnd = nodes.reduce(
-      (max, n) => Math.max(max, n.start_time + n.duration),
-      0
-    );
-    const newNode = createNode('', { start_time: lastEnd });
-    setNodes((prev) => [...prev, newNode]);
-    setSelectedId(newNode.id);
-  }, [nodes]);
+  const addNode = useCallback((trackId) => {
+    setTracks((prev) => prev.map(t => {
+      if (t.id !== trackId) return t;
+      const lastEnd = t.nodes.reduce(
+        (max, n) => Math.max(max, n.start_time + n.duration),
+        0
+      );
+      const newNode = createNode('', { start_time: lastEnd });
+      setSelectedId(newNode.id);
+      return { ...t, nodes: [...t.nodes, newNode] };
+    }));
+  }, []);
 
   const updateNode = useCallback((id, updates) => {
-    setNodes((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, ...updates } : n))
+    setTracks((prev) =>
+      prev.map((t) => ({
+        ...t,
+        nodes: t.nodes.map((n) => (n.id === id ? { ...n, ...updates } : n))
+      }))
     );
   }, []);
 
   const removeNode = useCallback(
     (id) => {
-      setNodes((prev) => prev.filter((n) => n.id !== id));
-      if (selectedId === id) {
-        setSelectedId(nodes[0]?.id !== id ? nodes[0]?.id : nodes[1]?.id);
-      }
+      setTracks((prev) => prev.map(t => ({
+        ...t,
+        nodes: t.nodes.filter(n => n.id !== id)
+      })));
     },
-    [selectedId, nodes]
+    []
   );
+
+  const addTrack = useCallback(() => {
+    setTracks(prev => [...prev, createTrack(`Track ${prev.length + 1}`)]);
+  }, []);
+
+  const updateTrack = useCallback((id, updates) => {
+    setTracks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+  }, []);
 
   // ── Synthesis ─────────────────────────────────────────────
   const synthesizeNode = useCallback(
     async (id) => {
-      const node = nodes.find((n) => n.id === id);
+      const node = tracks.flatMap(t => t.nodes).find((n) => n.id === id);
       if (!node || !node.text.trim()) return;
 
       setGenerating(true);
@@ -83,6 +114,7 @@ export default function App() {
           text: node.text,
           voice: node.voice,
           speed: node.speed,
+          seed: node.seed,
           autoTashkeel,
         });
 
@@ -97,19 +129,19 @@ export default function App() {
         setGenerating(false);
       }
     },
-    [nodes, autoTashkeel, updateNode]
+    [tracks, autoTashkeel, updateNode]
   );
 
   const synthesizeAll = useCallback(async () => {
     setGenerating(true);
-    for (const node of nodes) {
+    for (const node of tracks.flatMap(t => t.nodes)) {
       if (node.text.trim()) {
         await synthesizeNode(node.id);
       }
     }
     setGenerating(false);
     setStatus('All nodes generated');
-  }, [nodes, synthesizeNode]);
+  }, [tracks, synthesizeNode]);
 
   // ── Export ────────────────────────────────────────────────
   const handleExport = useCallback(async () => {
@@ -118,15 +150,7 @@ export default function App() {
 
     try {
       const blob = await exportTimeline(
-        nodes.map((n) => ({
-          id: n.id,
-          text: n.text,
-          voice: n.voice,
-          speed: n.speed,
-          start_time: n.start_time,
-          fade_in: n.fade_in,
-          fade_out: n.fade_out,
-        })),
+        tracks,
         autoTashkeel
       );
 
@@ -153,7 +177,7 @@ export default function App() {
     } finally {
       setGenerating(false);
     }
-  }, [nodes, autoTashkeel]);
+  }, [tracks, autoTashkeel]);
 
   // ── Tashkeel preview ──────────────────────────────────────
   const previewTashkeel = useCallback(async () => {
@@ -167,11 +191,25 @@ export default function App() {
     }
   }, [selectedNode, updateNode]);
 
+  const handleBgUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setStatus('Analyzing background track...');
+    try {
+      const url = URL.createObjectURL(file);
+      const pitchData = await pitchDetect(file);
+      setBgTrack({ url, pitch: pitchData.pitch, hopLength: pitchData.hop_length, sr: pitchData.sr });
+      setStatus('Background track loaded');
+    } catch (err) {
+      setStatus(`Error: ${err.message}`);
+    }
+  };
+
   return (
     <div className="studio-layout">
       {/* Top Bar */}
       <div className="topbar">
-        <h1>🎵 BayanSynth Studio</h1>
+        <h1>BayanSynth Studio</h1>
         <div className="topbar-actions">
           <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
             <input
@@ -181,79 +219,40 @@ export default function App() {
             />
             Auto-Tashkeel
           </label>
-          <button className="btn btn-sm" onClick={addNode}>
-            + Add Node
+          <button className="btn btn-sm" onClick={addTrack}>
+            + Add Track
           </button>
           <button
             className="btn btn-sm"
             onClick={synthesizeAll}
             disabled={generating}
           >
-            ▶ Generate All
+            Generate All
           </button>
           <button
             className="btn btn-sm btn-primary"
             onClick={handleExport}
             disabled={generating}
           >
-            💾 Export WAV
+            Export WAV
           </button>
         </div>
       </div>
 
       {/* Main Area: Editor + Properties */}
       <div className="main-area">
-        <div className="editor-panel">
-          {nodes.map((node) => (
-            <div
-              key={node.id}
-              className={`node-card ${selectedId === node.id ? 'selected' : ''}`}
-              onClick={() => setSelectedId(node.id)}
-            >
-              <div className="node-card-header">
-                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-                  {node.id}
-                </span>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <button
-                    className="btn btn-sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      synthesizeNode(node.id);
-                    }}
-                    disabled={generating || !node.text.trim()}
-                  >
-                    ▶
-                  </button>
-                  <button
-                    className="btn btn-sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeNode(node.id);
-                    }}
-                    style={{ color: 'var(--accent)' }}
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-              <div className="node-card-text">
-                {node.text || '(empty — click to edit)'}
-              </div>
-              <div className="node-card-meta">
-                <span>⏱ {node.duration.toFixed(1)}s</span>
-                <span>🔊 {node.speed}x</span>
-                <span>📍 {node.start_time.toFixed(1)}s</span>
-              </div>
-              {node.audioUrl && (
-                <audio
-                  src={node.audioUrl}
-                  controls
-                  style={{ width: '100%', height: 28, marginTop: 4 }}
-                />
-              )}
-            </div>
-          ))}
+        <div className="editor-panel" style={{ padding: 0 }}>
+          <Timeline
+            tracks={tracks}
+            bgTrack={bgTrack}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onUpdateNode={updateNode}
+            onUpdateTrack={updateTrack}
+            onAddNode={addNode}
+            onRemoveNode={removeNode}
+            onSynthesizeNode={synthesizeNode}
+          />
         </div>
 
         <PropertiesPanel
@@ -263,24 +262,27 @@ export default function App() {
             selectedNode && updateNode(selectedNode.id, updates)
           }
           onTashkeel={previewTashkeel}
+          onUploadVoice={async (file) => {
+            const res = await uploadVoice(file);
+            setVoices(prev => [...prev, res.filename]);
+            updateNode(selectedNode.id, { voice: res.filename });
+          }}
         />
       </div>
 
-      {/* Timeline */}
-      <div className="timeline">
-        <Timeline
-          nodes={nodes}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onUpdateNode={updateNode}
-        />
-        <WaveformViewer audioUrl={masterAudioUrl} />
+      {/* Bottom Bar */}
+      <div className="bottombar" style={{ padding: '8px 16px', background: 'var(--bg-secondary)', borderTop: '1px solid var(--border)', display: 'flex', gap: 16, alignItems: 'center' }}>
+        <label className="btn btn-sm">
+          Upload Background Track
+          <input type="file" accept="audio/*" hidden onChange={handleBgUpload} />
+        </label>
+        {masterAudioUrl && <WaveformViewer audioUrl={masterAudioUrl} />}
       </div>
 
       {/* Status Bar */}
       <div className="statusbar">
         <span>{status}</span>
-        <span>{nodes.length} nodes • {generating ? '⏳ Generating...' : '✅ Ready'}</span>
+        <span>{tracks.flatMap(t => t.nodes).length} nodes • {generating ? 'Generating...' : 'Ready'}</span>
       </div>
     </div>
   );

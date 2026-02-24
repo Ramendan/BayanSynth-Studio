@@ -27,6 +27,8 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 import numpy as np
+import librosa
+import soundfile as sf
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -77,10 +79,18 @@ class TimelineNode(BaseModel):
     pitch_shift: float = 0.0  # semitones (future)
     fade_in: float = 0.0
     fade_out: float = 0.0
+    volume: float = 1.0
 
+class Track(BaseModel):
+    id: str
+    name: str
+    nodes: list[TimelineNode]
+    volume: float = 1.0
+    mute: bool = False
+    solo: bool = False
 
 class ExportRequest(BaseModel):
-    nodes: list[TimelineNode]
+    tracks: list[Track]
     sample_rate: int = 24000
     auto_tashkeel: bool = True
 
@@ -161,11 +171,58 @@ async def upload_voice(file: UploadFile = File(...)):
 
     dest = os.path.join(voices_dir, safe_name)
     content = await file.read()
-    with open(dest, "wb") as f:
-        f.write(content)
+    
+    # Decode, resample to 24kHz mono, and normalize
+    try:
+        audio, sr = sf.read(io.BytesIO(content))
+        if len(audio.shape) > 1:
+            audio = librosa.to_mono(audio.T)
+        if sr != 24000:
+            audio = librosa.resample(audio, orig_sr=sr, target_sr=24000)
+        peak = np.abs(audio).max()
+        if peak > 0:
+            audio = audio / peak * 0.9
+        sf.write(dest, audio, 24000, subtype='PCM_16')
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to process audio: {e}")
 
     return {"filename": safe_name, "path": dest}
 
+@app.post("/api/pitch_detect")
+async def pitch_detect(file: UploadFile = File(...)):
+    """Extract pitch contour using torchcrepe."""
+    try:
+        import torchcrepe
+        import torch
+        content = await file.read()
+        audio, sr = sf.read(io.BytesIO(content))
+        if len(audio.shape) > 1:
+            audio = librosa.to_mono(audio.T)
+        if sr != 16000:
+            audio = librosa.resample(audio, orig_sr=sr, target_sr=16000)
+        
+        audio_tensor = torch.tensor(audio).unsqueeze(0)
+        # Run CREPE
+        pitch, periodicity = torchcrepe.predict(
+            audio_tensor,
+            16000,
+            100, # hop_length
+            fmin=50,
+            fmax=2000,
+            model='tiny',
+            batch_size=2048,
+            device='cuda' if torch.cuda.is_available() else 'cpu',
+            return_periodicity=True
+        )
+        
+        # Filter unvoiced frames
+        pitch = pitch.squeeze(0).cpu().numpy()
+        periodicity = periodicity.squeeze(0).cpu().numpy()
+        pitch[periodicity < 0.2] = 0
+        
+        return {"pitch": pitch.tolist(), "hop_length": 100, "sr": 16000}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/export")
 async def export_timeline(req: ExportRequest):
@@ -174,44 +231,52 @@ async def export_timeline(req: ExportRequest):
     sr = req.sample_rate
 
     # Find total duration needed
-    if not req.nodes:
-        raise HTTPException(400, "No nodes to export")
+    if not req.tracks:
+        raise HTTPException(400, "No tracks to export")
 
-    # Generate audio for each node
-    node_audio = []
-    for node in req.nodes:
-        audio = tts.synthesize(
-            node.text,
-            ref_audio=node.voice,
-            speed=node.speed,
-            auto_tashkeel=req.auto_tashkeel,
-        )
+    has_solo = any(t.solo for t in req.tracks)
 
-        # Apply fade in/out
-        if node.fade_in > 0:
-            fade_samples = int(node.fade_in * sr)
-            if fade_samples > 0 and fade_samples < len(audio):
-                fade_curve = np.linspace(0, 1, fade_samples)
-                audio[:fade_samples] *= fade_curve
-
-        if node.fade_out > 0:
-            fade_samples = int(node.fade_out * sr)
-            if fade_samples > 0 and fade_samples < len(audio):
-                fade_curve = np.linspace(1, 0, fade_samples)
-                audio[-fade_samples:] *= fade_curve
-
-        node_audio.append((node, audio))
-
-    # Calculate required buffer length
+    track_audios = []
     max_end = 0
-    for node, audio in node_audio:
-        end = node.start_time + len(audio) / sr
-        max_end = max(max_end, end)
+
+    for track in req.tracks:
+        if track.mute or (has_solo and not track.solo):
+            continue
+
+        for node in track.nodes:
+            audio = tts.synthesize(
+                node.text,
+                ref_audio=node.voice,
+                speed=node.speed,
+                auto_tashkeel=req.auto_tashkeel,
+            )
+
+            # Apply pitch shift
+            if node.pitch_shift != 0:
+                audio = librosa.effects.pitch_shift(audio, sr=sr, n_steps=node.pitch_shift)
+
+            # Apply fade in/out
+            if node.fade_in > 0:
+                fade_samples = int(node.fade_in * sr)
+                if fade_samples > 0 and fade_samples < len(audio):
+                    fade_curve = np.linspace(0, 1, fade_samples)
+                    audio[:fade_samples] *= fade_curve
+
+            if node.fade_out > 0:
+                fade_samples = int(node.fade_out * sr)
+                if fade_samples > 0 and fade_samples < len(audio):
+                    fade_curve = np.linspace(1, 0, fade_samples)
+                    audio[-fade_samples:] *= fade_curve
+
+            audio *= node.volume * track.volume
+            track_audios.append((node.start_time, audio))
+            end = node.start_time + len(audio) / sr
+            max_end = max(max_end, end)
 
     # Mix into output buffer
     output = np.zeros(int(max_end * sr) + sr, dtype=np.float32)  # +1s padding
-    for node, audio in node_audio:
-        start_sample = int(node.start_time * sr)
+    for start_time, audio in track_audios:
+        start_sample = int(start_time * sr)
         end_sample = start_sample + len(audio)
         if end_sample > len(output):
             output = np.pad(output, (0, end_sample - len(output)))

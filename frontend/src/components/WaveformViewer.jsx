@@ -21,10 +21,10 @@ export default function WaveformViewer({ audioUrl }) {
 
       ws = WaveSurfer.create({
         container: containerRef.current,
-        waveColor: '#e94560',
-        progressColor: '#00d2a0',
-        cursorColor: '#ffc107',
-        height: 100,
+        waveColor: '#007acc',
+        progressColor: '#0098ff',
+        cursorColor: '#ff9800',
+        height: 40,
         barWidth: 2,
         barGap: 1,
         barRadius: 2,
@@ -57,29 +57,15 @@ export default function WaveformViewer({ audioUrl }) {
   };
 
   return (
-    <div className="waveform-container" style={{ position: 'relative' }}>
-      {!audioUrl && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            color: 'var(--text-dim)',
-            fontSize: 13,
-          }}
-        >
-          Export timeline to see waveform
-        </div>
-      )}
+    <div className="waveform-container" style={{ position: 'relative', flex: 1, height: 40 }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
       {audioUrl && (
         <button
           className="btn btn-sm"
-          style={{ position: 'absolute', bottom: 4, right: 4, zIndex: 10 }}
+          style={{ position: 'absolute', top: 4, right: 4, zIndex: 10 }}
           onClick={handlePlayPause}
         >
-          ▶/⏸
+          Play/Pause
         </button>
       )}
     </div>

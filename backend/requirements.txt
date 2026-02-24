@@ -1,3 +1,7 @@
 fastapi>=0.100
 uvicorn>=0.30
 numpy>=1.26
+torchcrepe>=0.0.23
+librosa>=0.10.0
+soundfile>=0.12.1
+python-multipart>=0.0.9
