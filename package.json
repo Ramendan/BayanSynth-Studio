@@ -1,6 +1,6 @@
 {
   "name": "bayansynth-studio",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha",
   "description": "BayanSynth Studio — Vocaloid-inspired Arabic TTS editor",
   "main": "electron/main.js",
   "private": true,
