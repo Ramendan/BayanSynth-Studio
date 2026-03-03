@@ -6,14 +6,14 @@ Built on Electron, React 18, FastAPI, CosyVoice 3, and the BayanSynthTTS Arabic 
 
 ---
 
-## Quickstart (easiest)
+## Quickstart
 
 Download the latest `.exe` from the [Releases](https://github.com/Ramendan/BayanSynth-Studio/releases) page.
 
 - `BayanSynth Studio Setup 0.1.0-alpha.exe` - installs to your start menu
 - `BayanSynth Studio 0.1.0-alpha.exe` - portable, just double-click
 
-**Before running the exe**, clone the repo and run `setup.bat` once to create the Python environment. The exe uses that environment to run the AI backend. After setup, you can launch the app from the `.exe` instead of `start_studio.bat`.
+> **Required first:** The exe needs a Python environment to run the AI backend. Before launching it, clone the repo and run `setup.bat` once (see [Installation from source](#installation-from-source) below). The exe will then find the environment automatically. This is a known limitation of v0.1.0-alpha — a future release will bundle everything.
 
 On the first run it will download the AI models (~3.5 GB from Hugging Face). After that it opens straight to the editor every time.
 
