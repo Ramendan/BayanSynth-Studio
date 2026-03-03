@@ -110,7 +110,15 @@ function startBackend() {
 
   backendProcess = spawn(pythonPath, [serverScript], {
     cwd: isDev ? studioRoot : process.resourcesPath,
-    env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+    env: {
+      ...process.env,
+      PYTHONIOENCODING: 'utf-8',
+      // In the packaged app there is no BayanSynthTTS/ folder on the PATH -
+      // tell the backend to use the standard userData directory so models
+      // persist across updates and are always in a writable location.
+      // In dev mode we let server.py walk up and find BayanSynthTTS/ itself.
+      ...(!isDev ? { BAYANSYNTH_ROOT: app.getPath('userData') } : {}),
+    },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 
