@@ -8,10 +8,12 @@ Built on Electron, React 18, FastAPI, CosyVoice 3, and the BayanSynthTTS Arabic 
 
 ## Quickstart (easiest)
 
-Download the latest `.exe` from the [Releases](https://github.com/Ramendan/BayanSynth-Studio/releases) page. No Python, no terminal, no setup required.
+Download the latest `.exe` from the [Releases](https://github.com/Ramendan/BayanSynth-Studio/releases) page.
 
 - `BayanSynth Studio Setup 0.1.0-alpha.exe` - installs to your start menu
 - `BayanSynth Studio 0.1.0-alpha.exe` - portable, just double-click
+
+**Before running the exe**, clone the repo and run `setup.bat` once to create the Python environment. The exe uses that environment to run the AI backend. After setup, you can launch the app from the `.exe` instead of `start_studio.bat`.
 
 On the first run it will download the AI models (~3.5 GB from Hugging Face). After that it opens straight to the editor every time.
 
@@ -30,10 +32,9 @@ No subscription. No cloud. Everything runs on your machine.
 | Item | What you need |
 |------|---------------|
 | **OS** | Windows 10 or 11 (64-bit) |
+| **Python** | 3.11 - [python.org/downloads](https://www.python.org/downloads/) (tick **"Add Python to PATH"**) |
 | **GPU** | NVIDIA GPU recommended (CPU works but synthesis takes ~30 s per note) |
-| **Disk** | ~5 GB free (AI models ~3.5 GB + app ~1.5 GB) |
-
-> The `.exe` release bundles its own Python runtime. You do not need to install Python or Node.js.
+| **Disk** | ~5 GB free (AI models ~3.5 GB + Python environment ~1.5 GB) |
 
 ---
 
@@ -62,7 +63,7 @@ This creates a Python virtual environment and installs all dependencies. It does
 
 Running `setup.bat` again is safe and skips anything already installed.
 
-### Step 4 - First launch
+### Step 4 - Launch
 
 Double-click **`start_studio.bat`**.
 
@@ -299,7 +300,7 @@ git clone https://github.com/Ramendan/CosyVoice-Arabic.git
 cd CosyVoice-Arabic\demos\studio
 ```
 
-### Step 2 - Run setup
+### Step 3 - Run setup
 
 Double-click **`setup.bat`** (or type it in the terminal).
 
