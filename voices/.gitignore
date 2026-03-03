@@ -1,0 +1,9 @@
+# Track the folder itself but ignore large audio files by default.
+# Users can force-add specific voices with: git add -f voices/mywant.wav
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.webm
+!.gitkeep
+!.gitignore

@@ -1,0 +1,2079 @@
+/* ═══════════════════════════════════════════════════════════════
+   BayanSynth Studio — Vocaloid-Style Dark Neon Theme
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Core background */
+  --bg-primary: #0b0b0b;
+  --bg-secondary: #111113;
+  --bg-panel: #161618;
+  --bg-surface: #1a1a1e;
+  --bg-elevated: #222226;
+
+  /* Neon accents */
+  --cyan: #00f0ff;
+  --magenta: #ff2dcc;
+  --accent: #00f0ff;
+  --accent-hover: #33f4ff;
+  --accent-dim: #00f0ff44;
+
+  /* Glow effects */
+  --glow-cyan: 0 0 12px #00f0ff88;
+  --glow-magenta: 0 0 12px #ff2dcc88;
+  --glow-cyan-strong: 0 0 20px #00f0ffbb, 0 0 40px #00f0ff44;
+  --glow-magenta-strong: 0 0 20px #ff2dccbb, 0 0 40px #ff2dcc44;
+
+  /* Text */
+  --text: #e0e0e8;
+  --text-dim: #6a6a7a;
+  --text-bright: #ffffff;
+
+  /* Borders */
+  --border: #2a2a32;
+  --border-light: #3a3a44;
+  --border-focus: #00f0ff66;
+
+  /* Semantic */
+  --success: #35ff69;
+  --warning: #ffd700;
+  --error: #ff4757;
+
+  /* Piano roll */
+  --grid-line: #1a1a24;
+  --grid-line-beat: #2a2a3c;
+  --grid-line-bar: #3a3a50;
+  --white-key: #1e1e24;
+  --black-key: #0e0e12;
+  --piano-label: #888898;
+
+  /* Sizes */
+  --topbar-h: 48px;
+  --toolbar-h: 36px;
+  --transport-h: 36px;
+  --statusbar-h: 30px;
+  --panel-width: 320px;
+
+  /* Theme-adaptive semantic tokens — replace all hardcoded hex values in rules */
+  --btn-on-accent: #0b0b0b;
+  --overlay-bg: #000000aa;
+  --overlay-bg-heavy: #000000cc;
+  --shadow-heavy: 0 16px 48px #000000cc;
+  --shadow-medium: 0 8px 24px #00000088;
+  --vib-accent: #a855f7;
+  --success-tint: #35ff6918;
+  --success-glow: 0 0 8px #35ff6944;
+  --warning-tint: #ffd70018;
+  --warning-glow: 0 0 12px #ffd70044;
+  --warning-border: #ffd70050;
+  --error-tint: #ff475722;
+  --error-glow: 0 0 8px #ff475744;
+  --error-dim: #ff474766;
+  --cyan-tint: #00f0ff11;
+  --accent-border: #00f0ff50;
+}
+
+/* ── Light theme overrides ─────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-primary: #f0f0f5;
+  --bg-secondary: #e8e8ef;
+  --bg-panel: #dddde6;
+  --bg-surface: #d4d4de;
+  --bg-elevated: #c8c8d4;
+
+  --text: #1a1a2e;
+  --text-dim: #5a5a70;
+  --text-bright: #000000;
+
+  --border: #b8b8c8;
+  --border-light: #c8c8d8;
+  --border-focus: #0099bb66;
+
+  --grid-line: #cacad8;
+  --grid-line-beat: #b8b8ca;
+  --grid-line-bar: #a0a0b8;
+  --white-key: #e4e4ec;
+  --black-key: #b0b0c0;
+  --piano-label: #6a6a80;
+
+  /* Keep neon accents but slightly desaturated for readability */
+  --cyan: #0099bb;
+  --magenta: #cc0099;
+  --accent: #0099bb;
+  --accent-hover: #00aad4;
+  --accent-dim: #0099bb33;
+
+  --glow-cyan: 0 0 8px #0099bb55;
+  --glow-magenta: 0 0 8px #cc009955;
+  --glow-cyan-strong: 0 0 14px #0099bb88, 0 0 28px #0099bb33;
+  --glow-magenta-strong: 0 0 14px #cc009988, 0 0 28px #cc009933;
+
+  /* Light overrides for semantic tokens */
+  --btn-on-accent: #0a0a0a;
+  --overlay-bg: #00000066;
+  --overlay-bg-heavy: #00000088;
+  --shadow-heavy: 0 16px 48px #00000033;
+  --shadow-medium: 0 8px 24px #00000022;
+  --vib-accent: #7c3aed;
+  --success-tint: #35ff6920;
+  --success-glow: 0 0 6px #35ff6633;
+  --warning-tint: #ffd70025;
+  --warning-glow: 0 0 8px #ffd70044;
+  --warning-border: #ffd70080;
+  --error-tint: #ff475728;
+  --error-glow: 0 0 6px #ff475544;
+  --error-dim: #ff474799;
+  --cyan-tint: #0099bb22;
+  --accent-border: #0099bb50;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', -apple-system, 'Noto Sans Arabic', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--accent-dim);
+  color: var(--text-bright);
+}
+
+/* ── Layout Grid ─────────────────────────────────────────────── */
+.studio-layout {
+  display: grid;
+  grid-template-rows: var(--topbar-h) var(--toolbar-h) 1fr auto var(--statusbar-h);
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ── Top Bar ─────────────────────────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  z-index: 100;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-brand h1 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-shadow: var(--glow-cyan);
+}
+
+.topbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 4px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  z-index: 99;
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 2px;
+  padding: 0 8px;
+  border-right: 1px solid var(--border);
+}
+
+.toolbar-group:last-child {
+  border-right: none;
+}
+
+.tool-btn {
+  width: 30px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s;
+}
+
+.tool-btn:hover {
+  background: var(--bg-elevated);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.tool-btn.active {
+  background: var(--accent-dim);
+  color: var(--cyan);
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+/* ── Transport Bar ───────────────────────────────────────────── */
+.transport-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.transport-btn {
+  width: 28px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+
+.transport-btn:hover {
+  color: var(--text);
+  border-color: var(--border-light);
+}
+
+.transport-btn.playing {
+  color: var(--success);
+  border-color: var(--success);
+  box-shadow: var(--success-glow);
+}
+
+.transport-time {
+  font-family: 'Consolas', 'SF Mono', monospace;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg-primary);
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  min-width: 100px;
+  text-align: center;
+}
+
+/* ── Main Area (Editor + Properties) ─────────────────────────── */
+.main-area {
+  display: grid;
+  grid-template-columns: 1fr var(--panel-width);
+  overflow: hidden;
+}
+
+.editor-panel {
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-primary);
+}
+
+/* ── Properties Panel ────────────────────────────────────────── */
+.properties-panel {
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  padding: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.properties-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.properties-panel::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+.properties-panel::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 3px;
+}
+
+.properties-panel h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-section {
+  margin-bottom: 16px;
+}
+
+.panel-section-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--cyan);
+  margin-bottom: 8px;
+}
+
+/* ── Parameter Editor (Bottom Drawer) ────────────────────────── */
+.param-editor {
+  background: var(--bg-secondary);
+  border-top: 2px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.param-editor-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  cursor: ns-resize;
+  background: transparent;
+  z-index: 10;
+}
+
+.param-editor-handle:hover,
+.param-editor-handle:active {
+  background: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.param-editor-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 0 12px;
+}
+
+.param-tab {
+  padding: 6px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.param-tab:hover {
+  color: var(--text);
+}
+
+.param-tab.active {
+  color: var(--cyan);
+  border-bottom-color: var(--cyan);
+  text-shadow: var(--glow-cyan);
+}
+
+.param-canvas {
+  width: 100%;
+  height: calc(100% - 32px);
+  background: var(--bg-primary);
+}
+
+/* ── Forms & Inputs ──────────────────────────────────────────── */
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
+}
+
+input[type="text"],
+input[type="number"],
+textarea,
+select {
+  width: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 1px var(--accent-dim);
+}
+
+textarea {
+  resize: vertical;
+  font-family: 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+  direction: rtl;
+  text-align: right;
+  line-height: 1.6;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--cyan);
+  height: 4px;
+}
+
+select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236a6a7a'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.btn {
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--bg-surface);
+  border-color: var(--border-light);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-sm {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.btn-primary {
+  background: var(--cyan);
+  color: var(--btn-on-accent);
+  border-color: var(--cyan);
+  font-weight: 700;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: var(--glow-cyan);
+}
+
+.btn-magenta {
+  background: var(--magenta);
+  color: var(--btn-on-accent);
+  border-color: var(--magenta);
+  font-weight: 700;
+}
+
+.btn-magenta:hover:not(:disabled) {
+  box-shadow: var(--glow-magenta);
+}
+
+.btn-haraka {
+  background: var(--bg-elevated);
+  color: var(--cyan);
+  border-color: var(--cyan);
+  font-family: 'Noto Sans Arabic', 'Segoe UI', sans-serif;
+  font-size: 13px;
+  padding: 6px 14px;
+  letter-spacing: 0;
+}
+
+.btn-haraka:hover:not(:disabled) {
+  background: var(--accent-dim);
+  box-shadow: var(--glow-cyan);
+}
+
+.btn-haraka.success {
+  animation: haraka-glow 0.6s ease-out;
+}
+
+@keyframes haraka-glow {
+  0%   { box-shadow: 0 0 0 0 var(--cyan); }
+  50%  { box-shadow: 0 0 20px 4px var(--cyan); }
+  100% { box-shadow: var(--glow-cyan); }
+}
+
+.btn-dice {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 16px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: all 0.15s;
+}
+
+.btn-dice:hover {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+/* ── Color Swatches ──────────────────────────────────────────── */
+.color-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  padding: 8px 0;
+}
+
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.color-swatch:hover {
+  transform: scale(1.2);
+}
+
+.color-swatch.selected {
+  border-color: white;
+  box-shadow: 0 0 8px var(--cyan);
+}
+
+/* ── Phoneme Display ─────────────────────────────────────────── */
+.phoneme-display {
+  font-family: 'Consolas', 'SF Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-primary);
+  padding: 4px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  letter-spacing: 1px;
+  direction: ltr;
+  text-align: left;
+}
+
+/* ── Status Bar ──────────────────────────────────────────────── */
+.statusbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-dim);
+  z-index: 100;
+}
+
+.statusbar-left,
+.statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ── Bottom Bar (export preview) ─────────────────────────────── */
+.bottombar {
+  padding: 6px 16px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* ── Toggle / Checkbox ───────────────────────────────────────── */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.toggle input[type="checkbox"] {
+  accent-color: var(--cyan);
+  width: 14px;
+  height: 14px;
+}
+
+/* ── BPM & Snap Controls ────────────────────────────────────── */
+.bpm-input {
+  width: 52px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Consolas', 'SF Mono', monospace;
+  font-size: 12px;
+  text-align: center;
+}
+
+.bpm-input:focus {
+  border-color: var(--cyan);
+  outline: none;
+}
+
+.snap-select {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.snap-select:focus {
+  border-color: var(--cyan);
+  outline: none;
+}
+
+/* ── Glow Utility ────────────────────────────────────────────── */
+.glow-line {
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+/* ── Waveform Mini (inside note blocks, managed by canvas) ──── */
+.waveform-mini {
+  opacity: 0.6;
+}
+
+/* ── Scrollbar Global ────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light);
+}
+
+/* ── Keyboard Shortcut Hint ──────────────────────────────────── */
+.kbd {
+  font-family: 'Consolas', 'SF Mono', monospace;
+  font-size: 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 1px 4px;
+  color: var(--text-dim);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Track Headers (left panel inside PianoRoll)
+   ═══════════════════════════════════════════════════════════════ */
+.track-headers {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.track-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.track-name-input {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 3px;
+  width: 100%;
+}
+
+.track-name-input:focus {
+  outline: none;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-focus);
+}
+
+.track-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.track-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-dim);
+}
+
+.mute-btn.active {
+  background: var(--error);
+  color: var(--text-bright);
+  border-color: var(--error);
+}
+
+.solo-btn.active {
+  background: var(--warning);
+  color: var(--btn-on-accent);
+  border-color: var(--warning);
+}
+
+.delete-btn:hover {
+  background: var(--error);
+  color: var(--text-bright);
+}
+
+.track-volume {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.track-volume label {
+  min-width: 20px;
+}
+
+.volume-slider {
+  flex: 1;
+  height: 2px;
+}
+
+.volume-value {
+  min-width: 30px;
+  text-align: right;
+  font-family: monospace;
+  font-size: 9px;
+}
+
+.add-track-btn {
+  padding: 8px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+
+.add-track-btn:hover {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  background: var(--accent-dim);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Piano Roll Container
+   ═══════════════════════════════════════════════════════════════ */
+.piano-roll-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-primary);
+}
+
+.piano-roll-canvas {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Tool cursors */
+.piano-roll-canvas.tool-pencil { cursor: crosshair; }
+.piano-roll-canvas.tool-scissor { cursor: col-resize; }
+.piano-roll-canvas.tool-arrow { cursor: default; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Parameter Editor (bottom drawer)
+   ═══════════════════════════════════════════════════════════════ */
+.parameter-editor {
+  background: var(--bg-secondary);
+  border-top: 2px solid var(--border);
+  position: relative;
+  overflow: hidden;
+  transition: height 0.2s ease;
+}
+
+.parameter-editor.closed {
+  border-top-color: var(--border);
+}
+
+.param-resize-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: ns-resize;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.param-resize-grip {
+  width: 40px;
+  height: 3px;
+  background: var(--border-light);
+  border-radius: 2px;
+  transition: background 0.15s;
+}
+
+.param-resize-handle:hover .param-resize-grip {
+  background: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.param-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border);
+  height: 30px;
+}
+
+.param-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: color 0.15s;
+}
+
+.param-toggle:hover {
+  color: var(--cyan);
+}
+
+.param-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.param-content {
+  flex: 1;
+  overflow: hidden;
+}
+
+.param-lane {
+  width: 100%;
+  position: relative;
+}
+
+.param-lane.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+}
+
+.param-lane-hint {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Vibrato Controls
+   ═══════════════════════════════════════════════════════════════ */
+.vib-controls {
+  display: flex;
+  gap: 16px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.vib-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.vib-control input[type="range"] {
+  width: 80px;
+  accent-color: var(--vib-accent);
+}
+
+.vib-value {
+  font-family: monospace;
+  font-size: 10px;
+  color: var(--text);
+  min-width: 50px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Properties Panel — Enhanced
+   ═══════════════════════════════════════════════════════════════ */
+.properties-panel {
+  border-left: 3px solid var(--cyan);
+}
+
+.properties-panel.collapsed {
+  border-left-color: var(--border);
+}
+
+.properties-panel .hint {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-style: italic;
+  padding: 8px 0;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-header h3 {
+  font-size: 14px;
+  color: var(--text);
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+
+.node-id {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: monospace;
+  margin-left: auto;
+}
+
+.panel-section label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+  letter-spacing: 0.3px;
+}
+
+.section-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.warning-badge {
+  font-size: 10px;
+  color: var(--warning);
+  padding: 2px 6px;
+  border: 1px solid var(--warning);
+  border-radius: 3px;
+}
+
+.seed-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.seed-row input[type="number"] {
+  flex: 1;
+}
+
+.upload-btn {
+  cursor: pointer;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+
+.upload-btn:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.btn-sm.recording {
+  background: var(--error);
+  color: #fff;
+  border-color: var(--error);
+  animation: recording-pulse 1s infinite;
+}
+
+@keyframes recording-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.fade-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.shortcuts-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.shortcuts-hint kbd {
+  font-family: 'Consolas', 'SF Mono', monospace;
+  font-size: 9px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 1px 3px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NEW — Track Header Selection Highlight
+   ═══════════════════════════════════════════════════════════════ */
+.track-header.selected {
+  background: var(--bg-surface);
+  box-shadow: inset 0 0 16px #00f0ff11;
+}
+
+.track-header.selected .track-name-input {
+  color: var(--cyan);
+}
+
+.track-color-input {
+  width: 20px;
+  height: 20px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 3px;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.track-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.track-color-input::-webkit-color-swatch {
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.track-btn.vis-off {
+  opacity: 0.4;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NEW — Properties Panel Grouped Sections
+   ═══════════════════════════════════════════════════════════════ */
+.panel-group {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.panel-group-gen {
+  border-color: var(--warning-border);
+}
+
+.panel-group-engine {
+  border-color: var(--accent-border);
+}
+
+.panel-group-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gen-title {
+  color: var(--warning);
+}
+
+.engine-title {
+  color: var(--cyan);
+}
+
+.regen-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  color: var(--warning);
+  background: var(--warning-tint);
+  border: 1px solid var(--warning);
+  border-radius: 3px;
+  padding: 1px 6px;
+  margin-left: auto;
+}
+
+.node-type-badge {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+/* Button icons inline */
+.btn svg,
+.btn-sm svg {
+  vertical-align: -2px;
+  margin-right: 3px;
+}
+
+.btn-active-toggle {
+  background: var(--error);
+  color: var(--text-bright);
+  border-color: var(--error);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NEW — Context Menu
+   ═══════════════════════════════════════════════════════════════ */
+.context-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  min-width: 160px;
+  padding: 4px 0;
+  box-shadow: var(--shadow-medium);
+}
+
+.context-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  padding: 6px 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.context-item:hover {
+  background: var(--accent-dim);
+  color: var(--cyan);
+}
+
+.context-item.danger:hover {
+  background: var(--error-tint);
+  color: var(--error);
+}
+
+.context-item.sub {
+  padding-left: 28px;
+  font-size: 11px;
+}
+
+.context-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px;
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.context-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 8px;
+}
+
+.ctx-color {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NEW — Help Panel (Modal)
+   ═══════════════════════════════════════════════════════════════ */
+.help-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: var(--overlay-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.help-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  max-width: 560px;
+  width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-heavy);
+}
+
+.help-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.help-header h2 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: 1px;
+}
+
+.help-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.help-close:hover {
+  color: var(--text);
+  background: var(--bg-elevated);
+}
+
+.help-body {
+  padding: 16px 20px;
+}
+
+.help-body h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--cyan);
+  margin: 16px 0 8px;
+}
+
+.help-body h3:first-child {
+  margin-top: 0;
+}
+
+.help-shortcuts {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.help-shortcuts td {
+  padding: 4px 8px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.help-shortcuts td:first-child {
+  white-space: nowrap;
+}
+
+.help-shortcuts kbd {
+  font-family: 'Consolas', 'SF Mono', monospace;
+  font-size: 11px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: var(--text);
+}
+
+.help-steps,
+.help-tips {
+  padding-left: 20px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.help-steps li,
+.help-tips li {
+  margin-bottom: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NEW — Spin Animation (for generating indicator)
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Pass 2 — New Tool Cursors
+   ═══════════════════════════════════════════════════════════════ */
+.piano-roll-canvas.tool-delete { cursor: crosshair; }
+.piano-roll-canvas.tool-pan { cursor: grab; }
+.piano-roll-canvas.tool-pan:active { cursor: grabbing; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Pass 2 — Project Name in TopBar
+   ═══════════════════════════════════════════════════════════════ */
+.project-name {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-weight: 400;
+  margin-left: 4px;
+  letter-spacing: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Pass 2 — Properties Panel Action Buttons
+   ═══════════════════════════════════════════════════════════════ */
+.panel-header-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.btn-icon {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-icon:hover:not(:disabled) {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.btn-icon:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.btn-icon.danger:hover:not(:disabled) {
+  color: var(--error);
+  border-color: var(--error);
+  box-shadow: var(--error-glow);
+}
+
+/* Generate button */
+.btn-generate {
+  background: var(--bg-elevated);
+  border: 1px solid var(--warning);
+  color: var(--warning);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+
+.btn-generate:hover:not(:disabled) {
+  background: var(--warning-tint);
+  box-shadow: var(--warning-glow);
+}
+
+.btn-generate:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Revert button (⟲) */
+.btn-revert {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+  margin-left: auto;
+}
+
+.btn-revert:hover {
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Pass 2 — Arabic Text Input RTL
+   ═══════════════════════════════════════════════════════════════ */
+.arabic-input {
+  direction: rtl;
+  text-align: right;
+  font-family: 'Noto Sans Arabic', 'Segoe UI', sans-serif;
+  line-height: 1.8;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Pass 2 — Instruct / Section Hints
+   ═══════════════════════════════════════════════════════════════ */
+.instruct-input {
+  direction: ltr;
+  text-align: left;
+  font-family: 'Consolas', 'SF Mono', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  min-height: 48px;
+  resize: vertical;
+}
+
+.section-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-top: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Pass 2 — Parameter Lane Reset Button
+   ═══════════════════════════════════════════════════════════════ */
+.param-lane-reset {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  z-index: 5;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.param-lane-reset:hover {
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+/* Inline variant — used inside sidebars / flex rows (not absolutely positioned) */
+.param-lane-reset-inline {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  height: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 9px;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.param-lane-reset-inline:hover {
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+/* ── DynLane sidebar (floor/ceil range controls) ─────────────── */
+.dyn-sidebar {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 8px;
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.dyn-sidebar-title {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.dyn-range-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dyn-range-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  min-width: 26px;
+  text-transform: uppercase;
+}
+.dyn-range-val {
+  font-size: 8px;
+  font-family: 'Consolas', 'SF Mono', monospace;
+  color: var(--text-dim);
+  min-width: 28px;
+  text-align: right;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Pass 2 — Settings Panel (Modal)
+   ═══════════════════════════════════════════════════════════════ */
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: var(--overlay-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  max-width: 480px;
+  width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-heavy);
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-header h2 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: 1px;
+}
+
+.settings-body {
+  padding: 16px 20px;
+}
+
+.settings-section {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.settings-section h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--cyan);
+  margin-bottom: 10px;
+}
+
+.settings-hint {
+  display: block;
+  font-size: 10px;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-top: 4px;
+}
+
+.settings-about {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Voice Clone Panel (Modal)
+   ═══════════════════════════════════════════════════════════════ */
+.voice-clone-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  background: var(--overlay-bg-heavy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.voice-clone-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  max-width: 540px;
+  width: 92vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-heavy);
+}
+
+.voice-clone-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.voice-clone-header h2 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--magenta);
+  letter-spacing: 1px;
+}
+
+.voice-clone-body {
+  padding: 16px 20px;
+}
+
+.voice-clone-step {
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.voice-clone-step:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.voice-clone-step h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--cyan);
+  margin-bottom: 10px;
+}
+
+.voice-clone-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.recording-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--error-tint);
+  border: 1px solid var(--error);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--error);
+}
+
+.recording-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--error);
+  animation: recording-pulse 1s ease-in-out infinite;
+}
+
+@keyframes recording-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.recording-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--bg-elevated);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.recording-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--magenta), var(--cyan));
+  border-radius: 2px;
+  transition: width 0.3s linear;
+}
+
+.voice-saved-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--success-tint);
+  border: 1px solid var(--success);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--success);
+}
+
+.voice-clone-tips {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.7;
+}
+
+.voice-clone-tips strong {
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+.voice-clone-preview {
+  margin-top: 8px;
+}
+
+.voice-clone-preview audio {
+  width: 100%;
+  height: 32px;
+}
+
+/* Voice Library browser (inside VoiceClonePanel) */
+.voice-library-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.voice-library-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  gap: 8px;
+  transition: border-color 0.15s;
+}
+
+.voice-library-item.active {
+  border-color: var(--cyan);
+  background: var(--cyan-tint);
+}
+
+.voice-library-name {
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.voice-library-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.btn-danger-sm {
+  background: transparent;
+  border: 1px solid var(--error-dim);
+  color: var(--error);
+}
+
+.btn-danger-sm:hover {
+  background: var(--error-tint);
+  border-color: var(--error);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Effects Lane (Reverb, Delay, Chorus, EQ)
+   ═══════════════════════════════════════════════════════════════ */
+.effects-lane {
+  padding: 10px 12px;
+}
+
+.effects-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.effect-group {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.effect-group h4 {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 8px;
+}
+
+.effect-group .effect-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.effect-slider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.effect-slider label {
+  min-width: 50px;
+}
+
+.effect-slider input[type="range"] {
+  flex: 1;
+  accent-color: var(--cyan);
+}
+
+.effect-slider .effect-value {
+  font-family: monospace;
+  font-size: 10px;
+  color: var(--text);
+  min-width: 40px;
+  text-align: right;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Transitions Lane
+   ═══════════════════════════════════════════════════════════════ */
+.transitions-lane {
+  padding: 10px 12px;
+}
+
+.transition-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.transition-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.transition-item .transition-nodes {
+  flex: 1;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.transition-item select {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.transition-item input[type="range"] {
+  width: 80px;
+  accent-color: var(--magenta);
+}
+
+.transition-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Loading Screen / Splash
+   ═══════════════════════════════════════════════════════════════ */
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  gap: 20px;
+}
+
+.loading-logo {
+  font-size: 28px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--cyan), var(--magenta));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 2px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--cyan);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-status {
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}

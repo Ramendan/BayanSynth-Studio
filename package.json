@@ -1,0 +1,58 @@
+{
+  "name": "bayansynth-studio",
+  "version": "0.1.0",
+  "description": "BayanSynth Studio — Vocaloid-inspired Arabic TTS editor",
+  "main": "electron/main.js",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:electron\"",
+    "dev:electron": "wait-on --timeout 60000 --interval 500 http://localhost:5177 && electron .",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && python server.py",
+    "build": "npm run build:frontend && electron-builder",
+    "build:frontend": "cd frontend && npm run build",
+    "postinstall": "cd frontend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "dev.bayansynth.studio",
+    "productName": "BayanSynth Studio",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "frontend/dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": ["**/*.py", "requirements.txt"]
+      },
+      {
+        "from": "backend/lib",
+        "to": "backend/lib",
+        "filter": ["BayanSynthTTS/bayansynthtts/**/*", "BayanSynthTTS/voices/**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis",     "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

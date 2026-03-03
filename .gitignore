@@ -1,0 +1,34 @@
+# BayanSynth Studio — .gitignore
+
+# ── Python virtual environment (created by setup.bat) ────────────────────────
+.venv/
+
+# ── backend/lib/ — auto-populated by setup.bat / bundle_deps.bat ─────────────
+# Contains: cosyvoice + matcha Python packages (copied from CosyVoice repo)
+#           and BayanSynthTTS code + ~9 GB of model weights.
+# None of this belongs in git — run setup.bat to populate it.
+backend/lib/cosyvoice/
+backend/lib/matcha/
+backend/lib/BayanSynthTTS/bayansynthtts/
+backend/lib/BayanSynthTTS/conf/
+backend/lib/BayanSynthTTS/voices/
+backend/lib/BayanSynthTTS/asset/
+# Model weights (largest items — downloaded by download_models.py)
+backend/lib/BayanSynthTTS/pretrained_models/
+backend/lib/BayanSynthTTS/checkpoints/
+
+# ── Electron / npm build output ──────────────────────────────────────────────
+dist/
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# ── Python caches ────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+
+# ── Misc ─────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
