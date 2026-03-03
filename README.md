@@ -13,7 +13,7 @@ Download the latest `.exe` from the [Releases](https://github.com/Ramendan/Bayan
 - `BayanSynth Studio Setup 0.1.0-alpha.exe` - installs to your start menu
 - `BayanSynth Studio 0.1.0-alpha.exe` - portable, just double-click
 
-> **Required first:** The exe needs a Python environment to run the AI backend. Before launching it, clone the repo and run `setup.bat` once (see [Installation from source](#installation-from-source) below). The exe will then find the environment automatically. This is a known limitation of v0.1.0-alpha — a future release will bundle everything.
+> **Note:** the exe relies on the Python environment created by `setup.bat`. Run the script once (see [Installation from source](#installation-from-source) below) before using the executable.
 
 On the first run it will download the AI models (~3.5 GB from Hugging Face). After that it opens straight to the editor every time.
 
