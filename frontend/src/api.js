@@ -32,15 +32,16 @@ export const VOICES_BASE =
 /**
  * Check whether the required model files are present on the backend host.
  * Returns { ready: bool, base_model: bool, lora: bool }.
- * Falls back to { ready: true } when the backend is unreachable (dev mode).
+ * Falls back to { ready: false } when the backend is unreachable so the
+ * setup screen is shown instead of silently skipping it.
  */
 export async function getSetupStatus() {
   try {
     const res = await fetch(`${API_BASE}/setup/status`);
-    if (!res.ok) return { ready: true };
+    if (!res.ok) return { ready: false };
     return res.json();
   } catch {
-    return { ready: true };
+    return { ready: false };
   }
 }
 
