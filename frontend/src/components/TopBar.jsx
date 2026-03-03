@@ -1,0 +1,185 @@
+/**
+ * BayanSynth Studio — Top Bar
+ *
+ * Application title, project actions (Save/Load), global settings
+ * (BPM, snap division, auto-tashkeel), Import Audio, End Marker, Help.
+ * All icons from lucide-react.
+ */
+
+import React, { useRef } from 'react';
+import { useAtom, useSetAtom, useAtomValue } from 'jotai';
+import {
+  FolderOpen, Save, Plus, Wand2, Download,
+  FileAudio, HelpCircle, FlagTriangleRight, Settings, Mic,
+} from 'lucide-react';
+import {
+  bpmAtom, snapDivisionAtom, autoTashkeelAtom, isGeneratingAtom,
+  addTrackAtom, helpOpenAtom, endNodeTimeAtom, statusTextAtom,
+  settingsOpenAtom, projectNameAtom, unsavedChangesAtom,
+} from '../store/atoms';
+import { voiceCloneOpenAtom } from './VoiceClonePanel';
+import { saveProjectAtom, openProjectAtom } from '../store/project';
+import { SNAP_DIVISIONS } from '../utils/constants';
+
+const ICO = { size: 14, strokeWidth: 1.5 };
+
+export default function TopBar({ onSynthesizeAll, onExport, onImportAudio }) {
+  const [bpm, setBpm] = useAtom(bpmAtom);
+  const [snap, setSnap] = useAtom(snapDivisionAtom);
+  const [autoTashkeel, setAutoTashkeel] = useAtom(autoTashkeelAtom);
+  const [generating] = useAtom(isGeneratingAtom);
+  const [endNodeTime, setEndNodeTime] = useAtom(endNodeTimeAtom);
+  const addTrack = useSetAtom(addTrackAtom);
+  const saveProject = useSetAtom(saveProjectAtom);
+  const openProject = useSetAtom(openProjectAtom);
+  const setHelpOpen = useSetAtom(helpOpenAtom);
+  const setSettingsOpen = useSetAtom(settingsOpenAtom);
+  const setVoiceCloneOpen = useSetAtom(voiceCloneOpenAtom);
+  const projectName = useAtomValue(projectNameAtom);
+  const unsaved = useAtomValue(unsavedChangesAtom);
+  const setStatus = useSetAtom(statusTextAtom);
+
+  const fileInputRef = useRef(null);
+
+  const handleImportClick = () => {
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleImportFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (onImportAudio) onImportAudio(file);
+    // Reset so same file can be re-imported
+    e.target.value = '';
+  };
+
+  const toggleEndMarker = () => {
+    if (endNodeTime != null) {
+      setEndNodeTime(null);
+      setStatus('End marker removed');
+    } else {
+      setEndNodeTime(10);
+      setStatus('End marker set at 10s — drag on ruler to adjust');
+    }
+  };
+
+  return (
+    <div className="topbar">
+      <div className="topbar-brand">
+        <h1>BayanSynth Studio</h1>
+        <span className="project-name">{projectName}{unsaved ? ' •' : ''}</span>
+      </div>
+
+      <div className="topbar-controls">
+        {/* BPM */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-dim)' }}>
+          BPM
+          <input
+            className="bpm-input"
+            type="number"
+            min={40}
+            max={300}
+            value={bpm}
+            onChange={(e) => setBpm(Math.max(40, Math.min(300, parseInt(e.target.value) || 120)))}
+          />
+        </label>
+
+        {/* Snap Division */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-dim)' }}>
+          Snap
+          <select
+            className="snap-select"
+            value={snap}
+            onChange={(e) => setSnap(e.target.value)}
+          >
+            {Object.keys(SNAP_DIVISIONS).map(key => (
+              <option key={key} value={key}>{key}</option>
+            ))}
+          </select>
+        </label>
+
+        {/* Auto-Tashkeel Toggle */}
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={autoTashkeel}
+            onChange={(e) => setAutoTashkeel(e.target.checked)}
+          />
+          Auto-Tashkeel
+        </label>
+      </div>
+
+      <div className="topbar-actions">
+        {/* Project Save/Load */}
+        <button className="btn btn-sm" onClick={openProject} title="Open Project (Ctrl+O)">
+          <FolderOpen {...ICO} /> Open
+        </button>
+        <button className="btn btn-sm" onClick={saveProject} title="Save Project (Ctrl+S)">
+          <Save {...ICO} /> Save
+        </button>
+
+        <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+
+        {/* Track & Synthesis */}
+        <button className="btn btn-sm" onClick={() => addTrack()}>
+          <Plus {...ICO} /> Track
+        </button>
+
+        {/* Import Audio */}
+        <button className="btn btn-sm" onClick={handleImportClick} title="Import audio file (Item 9)">
+          <FileAudio {...ICO} /> Import
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/*"
+          hidden
+          onChange={handleImportFile}
+        />
+
+        {/* Voice Cloning */}
+        <button className="btn btn-sm" onClick={() => setVoiceCloneOpen(true)} title="Voice Cloning">
+          <Mic {...ICO} /> Clone Voice
+        </button>
+
+        {/* End Marker toggle */}
+        <button
+          className={`btn btn-sm ${endNodeTime != null ? 'btn-active-toggle' : ''}`}
+          onClick={toggleEndMarker}
+          title="Toggle end marker"
+        >
+          <FlagTriangleRight {...ICO} /> End
+        </button>
+
+        <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+
+        <button
+          className="btn btn-sm"
+          onClick={onSynthesizeAll}
+          disabled={generating}
+        >
+          <Wand2 {...ICO} /> Generate All
+        </button>
+        <button
+          className="btn btn-sm btn-primary"
+          onClick={onExport}
+          disabled={generating}
+        >
+          <Download {...ICO} /> Export WAV
+        </button>
+
+        <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+
+        {/* Help */}
+        <button className="btn btn-sm" onClick={() => setHelpOpen(true)} title="Keyboard shortcuts & help (?)">
+          <HelpCircle {...ICO} />
+        </button>
+
+        {/* Settings (Item 23) */}
+        <button className="btn btn-sm" onClick={() => setSettingsOpen(true)} title="Settings">
+          <Settings {...ICO} />
+        </button>
+      </div>
+    </div>
+  );
+}
