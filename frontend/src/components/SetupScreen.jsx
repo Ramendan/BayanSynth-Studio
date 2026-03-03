@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { streamModelDownload } from '../api';
+import { streamModelDownload, getSetupStatus } from '../api';
 
 const STAGE_LABELS = {
   idle:    'Ready to download',
@@ -23,6 +23,24 @@ export default function SetupScreen({ onSetupComplete, modelDir, loraPath }) {
   const [progress, setProgress] = useState({ stage: 'idle', base_pct: 0, lora_pct: 0, message: '' });
   const [errorMsg, setErrorMsg] = useState('');
   const cleanupRef = useRef(null);
+  // Resolved paths — prefer props, fall back to a direct fetch
+  const [resolvedDir, setResolvedDir]   = useState(modelDir  || '');
+  const [resolvedLora, setResolvedLora] = useState(loraPath  || '');
+
+  // If the parent didn't have paths yet (backend was still waking up), fetch them now
+  useEffect(() => {
+    if (resolvedDir) return; // already have it
+    let cancelled = false;
+    getSetupStatus()
+      .then(s => {
+        if (!cancelled && s.model_dir) {
+          setResolvedDir(s.model_dir);
+          setResolvedLora(s.lora_path || '');
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [resolvedDir]);
 
   // Auto-proceed to DAW 1.5 s after success
   useEffect(() => {
@@ -82,21 +100,23 @@ export default function SetupScreen({ onSetupComplete, modelDir, loraPath }) {
             </ul>
 
             {/* Show where files will land */}
-            <div className="setup-paths">
-              <div className="setup-paths__label">Files will be saved to:</div>
-              {modelDir && (
-                <div className="setup-paths__row">
-                  <span className="setup-paths__key">Base model</span>
-                  <code className="setup-paths__val">{modelDir}</code>
-                </div>
-              )}
-              {loraPath && (
-                <div className="setup-paths__row">
-                  <span className="setup-paths__key">LoRA</span>
-                  <code className="setup-paths__val">{loraPath}</code>
-                </div>
-              )}
-            </div>
+            {(resolvedDir || resolvedLora) && (
+              <div className="setup-paths">
+                <div className="setup-paths__label">Files will be saved to:</div>
+                {resolvedDir && (
+                  <div className="setup-paths__row">
+                    <span className="setup-paths__key">Base model</span>
+                    <code className="setup-paths__val">{resolvedDir}</code>
+                  </div>
+                )}
+                {resolvedLora && (
+                  <div className="setup-paths__row">
+                    <span className="setup-paths__key">LoRA</span>
+                    <code className="setup-paths__val">{resolvedLora}</code>
+                  </div>
+                )}
+              </div>
+            )}
 
             <button className="setup-btn" onClick={startDownload}>
               Download Models
