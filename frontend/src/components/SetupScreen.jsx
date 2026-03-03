@@ -18,7 +18,7 @@ const STAGE_LABELS = {
   error:   'Download failed',
 };
 
-export default function SetupScreen({ onSetupComplete }) {
+export default function SetupScreen({ onSetupComplete, modelDir, loraPath }) {
   const [phase, setPhase] = useState('idle');    // idle | downloading | done | error
   const [progress, setProgress] = useState({ stage: 'idle', base_pct: 0, lora_pct: 0, message: '' });
   const [errorMsg, setErrorMsg] = useState('');
@@ -80,6 +80,24 @@ export default function SetupScreen({ onSetupComplete }) {
               <li>CosyVoice3 base model — <span className="setup-dim">~2.8 GB</span></li>
               <li>BayanSynth LoRA checkpoint — <span className="setup-dim">~1.5 GB</span></li>
             </ul>
+
+            {/* Show where files will land */}
+            <div className="setup-paths">
+              <div className="setup-paths__label">Files will be saved to:</div>
+              {modelDir && (
+                <div className="setup-paths__row">
+                  <span className="setup-paths__key">Base model</span>
+                  <code className="setup-paths__val">{modelDir}</code>
+                </div>
+              )}
+              {loraPath && (
+                <div className="setup-paths__row">
+                  <span className="setup-paths__key">LoRA</span>
+                  <code className="setup-paths__val">{loraPath}</code>
+                </div>
+              )}
+            </div>
+
             <button className="setup-btn" onClick={startDownload}>
               Download Models
             </button>

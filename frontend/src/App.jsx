@@ -46,7 +46,7 @@ import {
 } from './store/atoms';
 import { undoAtom, redoAtom } from './store/history';
 import { saveProjectAtom, openProjectAtom } from './store/project';
-import { listVoices, synthesize, exportTimeline, getSetupStatus } from './api';
+import { listVoices, synthesize, exportTimeline, getSetupStatus, checkStatus } from './api';
 import { getEngine } from './audio/AudioEngine';
 import { getTransport } from './audio/TransportController';
 import { TOOLS } from './utils/constants';
@@ -68,6 +68,8 @@ export default function App() {
   const [loadingMsg, setLoadingMsg] = useState('Initializing...');
   // null = checking, false = needs first-run setup, true = models present
   const [setupReady, setSetupReady] = useState(null);
+  // Model save paths returned by /api/setup/status (for display in SetupScreen)
+  const [modelPaths, setModelPaths] = useState({ model_dir: '', lora_path: '' });
   const setVoices = useSetAtom(voicesAtom);
   const setStatus = useSetAtom(statusTextAtom);
   const tracks = useAtomValue(tracksAtom);
@@ -113,8 +115,8 @@ export default function App() {
         let attempts = 0;
         while (attempts < 10) {
           try {
-            const res = await fetch('/api/status');
-            if (res.ok) break;
+            const st = await checkStatus();
+            if (st && st.status === 'ok') break;
           } catch { /* retry */ }
           attempts++;
           setLoadingMsg(`Waiting for backend... (${attempts}/10)`);
@@ -124,6 +126,9 @@ export default function App() {
         // Check whether models are present (first-run setup guard)
         setLoadingMsg('Checking models...');
         const setup = await getSetupStatus();
+        if (mounted) {
+          setModelPaths({ model_dir: setup.model_dir || '', lora_path: setup.lora_path || '' });
+        }
         if (mounted && !setup.ready) {
           setSetupReady(false);
           setLoading(false);
@@ -430,6 +435,8 @@ export default function App() {
   if (setupReady === false) {
     return (
       <SetupScreen
+        modelDir={modelPaths.model_dir}
+        loraPath={modelPaths.lora_path}
         onSetupComplete={async () => {
           setSetupReady(null);
           setLoading(true);

@@ -2142,6 +2142,48 @@ select {
   text-align: center;
 }
 
+/* ── Model save paths display ────────────────── */
+
+.setup-paths {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setup-paths__label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 2px;
+}
+
+.setup-paths__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.setup-paths__key {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.setup-paths__val {
+  font-family: monospace;
+  font-size: 10.5px;
+  color: var(--cyan);
+  word-break: break-all;
+  background: var(--bg-surface);
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
 .setup-dim {
   color: var(--text-dim);
 }

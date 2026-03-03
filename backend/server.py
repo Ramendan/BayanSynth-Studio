@@ -127,7 +127,7 @@ class ArabicJSONResponse(JSONResponse):
 
 app = FastAPI(title="BayanSynth Studio API", version="0.1.0")
 
-# Allow Electron dev server
+# Allow both the Vite dev server and the packaged Electron app (file:// origin)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -136,6 +136,9 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:5173", "http://127.0.0.1:5177",
         "http://127.0.0.1:5178", "http://127.0.0.1:5179", "http://127.0.0.1:5180",
+        # Packaged Electron app loads index.html via file://, which makes the
+        # browser send  Origin: null  for every fetch / EventSource request.
+        "null",
     ],
     allow_methods=["*"],
     allow_headers=["*"],
@@ -329,16 +332,35 @@ async def status():
 
 @app.get("/api/setup/status")
 async def setup_status():
-    """Check whether the required model files are present on disk."""
+    """Check whether the required model files are present on disk.
+
+    Returns:
+        ready      — True when both base model and LoRA are present
+        base_model — True when pretrained_models/CosyVoice3/ dir exists
+        lora       — True when checkpoints/llm/epoch_28_whole.pt exists
+        model_dir  — Absolute path where the base model will be / is saved
+        lora_path  — Absolute path where the LoRA checkpoint will be / is saved
+    """
     try:
-        bayan = _find_bayansynth_root()
-        base_ok = (bayan / "pretrained_models" / "CosyVoice3").is_dir()
-        lora_ok = (bayan / "checkpoints" / "llm" / "epoch_28_whole.pt").is_file()
+        bayan     = _find_bayansynth_root()
+        model_dir = bayan / "pretrained_models" / "CosyVoice3"
+        lora_path = bayan / "checkpoints" / "llm" / "epoch_28_whole.pt"
+        base_ok   = model_dir.is_dir()
+        lora_ok   = lora_path.is_file()
     except Exception:
-        base_ok = False
-        lora_ok = False
+        bayan     = Path("?")
+        model_dir = Path("?")
+        lora_path = Path("?")
+        base_ok   = False
+        lora_ok   = False
     return ArabicJSONResponse(
-        content={"ready": base_ok and lora_ok, "base_model": base_ok, "lora": lora_ok}
+        content={
+            "ready":      base_ok and lora_ok,
+            "base_model": base_ok,
+            "lora":       lora_ok,
+            "model_dir":  str(model_dir),
+            "lora_path":  str(lora_path),
+        }
     )
 
 

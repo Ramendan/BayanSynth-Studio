@@ -22,9 +22,9 @@ It runs entirely on your computer — no subscription, no internet required afte
 | **Python** | 3.11 — [python.org/downloads](https://www.python.org/downloads/) |
 | **Node.js** | 20 LTS — [nodejs.org](https://nodejs.org) |
 | **Git** | Any recent version — [git-scm.com](https://git-scm.com) |
-| **GPU** | NVIDIA RTX 2060 or better (recommended). CPU-only works but synthesis takes ~30 s per note. |
+| **GPU** | Any NVIDIA CUDA GPU recommended (GTX 1080 or newer, any RTX / Quadro). CPU-only works but synthesis takes ~30 s per note. |
 | **RAM** | 16 GB minimum, 32 GB recommended |
-| **Disk** | ~12 GB free (model weights ~9 GB + Python environment ~2 GB) |
+| **Disk** | ~5 GB free (AI models ~3.5 GB + Python environment ~1.5 GB) |
 
 > **Tip:** During Python installation, tick **"Add Python to PATH"**. During Node.js installation, tick **"Automatically install the necessary tools"**.
 
@@ -51,16 +51,51 @@ This will automatically:
 1. Create a Python virtual environment inside the folder
 2. Install all Python packages (`torch`, `fastapi`, `bayansynthtts`, etc.)
 3. Install all Node.js packages
-4. Download the CosyVoice 3 base model (~7.4 GB) from Hugging Face
-5. Download the BayanSynthTTS Arabic LoRA checkpoint (~1.9 GB) from GitHub Releases
 
-> The download can take 20–60 minutes depending on your connection. You only ever need to do this once; re-running `setup.bat` later will skip files that are already present.
+> Setup creates the environment only — it does **not** download the AI models.
+> The models are downloaded automatically the first time you launch the studio (see next step).
 
-### Step 3 — Launch the studio
+> Re-running `setup.bat` is safe — it skips anything already installed.
 
-Double-click **`start_studio.bat`** every time you want to use the app.
+### Step 3 — First launch: download models
 
-A window will open showing the BayanSynth Studio editor. From now on, just double-click `start_studio.bat` — setup does not need to run again.
+Double-click **`start_studio.bat`**.
+
+On the very first launch, the studio will detect that the AI models are missing and show a **Download Models** screen. Click the button to start the download (~3.5 GB total from Hugging Face).
+
+| What gets downloaded | Approx. size |
+|----------------------|--------------|
+| CosyVoice3 base model | ~2.8 GB |
+| BayanSynth Arabic LoRA | ~1.5 GB |
+
+The screen shows two live progress bars. When both reach 100 % the models load into memory and the studio opens automatically.
+
+> This download happens **once**. After that, the studio opens directly every time.
+
+---
+
+## Where are the models stored?
+
+The models are saved inside the **BayanSynthTTS** folder that lives alongside the repository:
+
+```
+BayanSynthTTS\
+  pretrained_models\
+    CosyVoice3\          ← base model (~2.8 GB)
+  checkpoints\
+    llm\
+      epoch_28_whole.pt  ← Arabic LoRA (~1.5 GB)
+```
+
+The download wizard shows the exact paths on your machine before you start.
+
+To **re-download** (e.g. after moving the folder), delete those two locations and launch the studio again.
+
+---
+
+### Step 4 — Daily use
+
+Double-click **`start_studio.bat`** every time you want to use the app. The model download only runs on the first launch; from then on the studio opens straight to the editor.
 
 ---
 
@@ -167,7 +202,7 @@ Re-run `npm run build` to pick up the icon.
 | `git` is not recognized | Install Git from [git-scm.com](https://git-scm.com) |
 | Setup stops at model download | Check your internet connection; re-run `setup.bat` — it resumes from where it stopped |
 | Studio opens but no audio | Check that another app is not blocking your audio device |
-| Synthesis is very slow | You are running on CPU. A supported NVIDIA GPU greatly speeds this up |
+| Synthesis is very slow | You are running on CPU. Any NVIDIA CUDA GPU (GTX 1080 or newer) greatly speeds this up |
 | Light theme looks wrong | Clear the app's `localStorage` in DevTools (`F12 → Application → Local Storage → Clear`) |
 | Build fails: cannot find `assets/icon.ico` | Remove the `icon` lines from `package.json` (see above), or add the file |
 | Port 8910 already in use | Close any other BayanSynth Studio window, then retry |
