@@ -17,9 +17,12 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import io
+import json as _json_mod
 import os
 import sys
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -158,15 +161,48 @@ async def _seed_default_voices():
                 shutil.copy2(src, dest)
                 print(f"[BayanSynth Studio] Seeded default voice: {dest_name}")
 
-# ── Lazy model loading ──────────────────────────────────────────────
+
+@app.on_event("startup")
+async def _try_load_models_on_startup():
+    """If models are already present, load them in a background thread."""
+    if _bayan_has_models():
+        print("[Studio] Models found — loading in background…")
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _get_tts)
+        print("[Studio] Models ready.")
+    else:
+        print("[Studio] Models not found — first-run setup required.")
+
+# ── Model state ─────────────────────────────────────────────────────
 _TTS = None
+_models_ready: bool = False          # True once BayanSynthTTS() loaded OK
+_download_thread: threading.Thread | None = None  # background download
+_dl_progress: dict = {
+    "stage": "idle",      # idle | base | lora | loading | done | error
+    "base_pct": 0,
+    "lora_pct": 0,
+    "message": "",
+    "error": None,
+}
+
+
+def _bayan_has_models() -> bool:
+    """Return True when both the base model dir and LoRA checkpoint exist."""
+    try:
+        bayan = _find_bayansynth_root()
+        base_ok = (bayan / "pretrained_models" / "CosyVoice3").is_dir()
+        lora_ok = (bayan / "checkpoints" / "llm" / "epoch_28_whole.pt").is_file()
+        return base_ok and lora_ok
+    except Exception:
+        return False
 
 
 def _get_tts():
-    global _TTS
+    global _TTS, _models_ready
     if _TTS is None:
         from bayansynthtts.inference import BayanSynthTTS
         _TTS = BayanSynthTTS()
+        _models_ready = True
     return _TTS
 
 
@@ -284,13 +320,210 @@ async def status():
     return {
         "status": "ok",
         "model_loaded": _TTS is not None,
+        "models_ready": _models_ready,
         "version": "0.1.0",
     }
+
+
+# ── Setup / first-run model download ────────────────────────────────
+
+@app.get("/api/setup/status")
+async def setup_status():
+    """Check whether the required model files are present on disk."""
+    try:
+        bayan = _find_bayansynth_root()
+        base_ok = (bayan / "pretrained_models" / "CosyVoice3").is_dir()
+        lora_ok = (bayan / "checkpoints" / "llm" / "epoch_28_whole.pt").is_file()
+    except Exception:
+        base_ok = False
+        lora_ok = False
+    return ArabicJSONResponse(
+        content={"ready": base_ok and lora_ok, "base_model": base_ok, "lora": lora_ok}
+    )
+
+
+# Expected on-disk sizes used for progress estimation
+_BASE_MODEL_EXPECTED_BYTES = 3_000_000_000   # ~3 GB
+_LORA_EXPECTED_BYTES       = 1_500_000_000   # ~1.5 GB
+
+
+def _dir_size(path: Path) -> int:
+    """Sum of all file sizes under *path* (non-recursive would miss sub-dirs)."""
+    total = 0
+    try:
+        for entry in path.rglob("*"):
+            try:
+                if entry.is_file():
+                    total += entry.stat().st_size
+            except OSError:
+                pass
+    except OSError:
+        pass
+    return total
+
+
+def _run_download(bayan: Path) -> None:
+    """Background thread: download base model then LoRA, updating _dl_progress."""
+    global _dl_progress, _models_ready, _TTS
+
+    # Make sure the setup_models script is importable
+    scripts_dir = str(bayan / "scripts")
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+
+    try:
+        import setup_models as sm
+    except ImportError as exc:
+        _dl_progress["error"] = f"Cannot import setup_models: {exc}"
+        _dl_progress["stage"] = "error"
+        return
+
+    model_dir = bayan / "pretrained_models" / "CosyVoice3"
+    lora_path = bayan / "checkpoints" / "llm" / "epoch_28_whole.pt"
+
+    # ── Stage 1: base model ──────────────────────────────────────────
+    _dl_progress["stage"] = "base"
+    _dl_progress["message"] = "Downloading CosyVoice3 base model…"
+
+    def _poll_base():
+        while _dl_progress["stage"] == "base":
+            pct = min(99, int(_dir_size(model_dir) * 100 / _BASE_MODEL_EXPECTED_BYTES))
+            _dl_progress["base_pct"] = pct
+            time.sleep(0.5)
+
+    poll_t = threading.Thread(target=_poll_base, daemon=True)
+    poll_t.start()
+
+    try:
+        sm.download_base_model(model_dir, force=False)
+    except Exception as exc:
+        _dl_progress["error"] = f"Base model download failed: {exc}"
+        _dl_progress["stage"] = "error"
+        return
+
+    _dl_progress["base_pct"] = 100
+    poll_t.join(timeout=2)
+
+    # ── Stage 2: LoRA checkpoint ─────────────────────────────────────
+    _dl_progress["stage"] = "lora"
+    _dl_progress["message"] = "Downloading LoRA checkpoint…"
+
+    def _poll_lora():
+        while _dl_progress["stage"] == "lora":
+            if lora_path.is_file():
+                pct = min(99, int(lora_path.stat().st_size * 100 / _LORA_EXPECTED_BYTES))
+            else:
+                pct = 0
+            # Also check for partial files in the same dir
+            parent = lora_path.parent
+            if parent.is_dir():
+                for f in parent.iterdir():
+                    if f.suffix in (".tmp", ".part", ".incomplete"):
+                        try:
+                            pct = min(99, int(f.stat().st_size * 100 / _LORA_EXPECTED_BYTES))
+                        except OSError:
+                            pass
+            _dl_progress["lora_pct"] = pct
+            time.sleep(0.5)
+
+    poll_t2 = threading.Thread(target=_poll_lora, daemon=True)
+    poll_t2.start()
+
+    try:
+        sm.download_checkpoints(force=False)
+    except Exception as exc:
+        _dl_progress["error"] = f"LoRA download failed: {exc}"
+        _dl_progress["stage"] = "error"
+        return
+
+    _dl_progress["lora_pct"] = 100
+    poll_t2.join(timeout=2)
+
+    # ── Stage 3: load models into memory ────────────────────────────
+    _dl_progress["stage"] = "loading"
+    _dl_progress["message"] = "Loading models into memory…"
+    try:
+        _get_tts()
+    except Exception as exc:
+        _dl_progress["error"] = f"Model load failed: {exc}"
+        _dl_progress["stage"] = "error"
+        return
+
+    _dl_progress["stage"] = "done"
+    _dl_progress["message"] = "Models ready!"
+
+
+@app.get("/api/setup/download")
+async def setup_download():
+    """SSE stream — starts background model download and reports progress.
+
+    Events:
+        {"stage":"base","base_pct":N,"lora_pct":0,"message":"…"}
+        {"stage":"lora","base_pct":100,"lora_pct":N,"message":"…"}
+        {"stage":"loading",…}
+        {"type":"done"}
+        {"type":"error","message":"…"}
+    """
+    global _download_thread
+
+    try:
+        bayan = _find_bayansynth_root()
+    except RuntimeError as exc:
+        async def _err():
+            yield f'data: {{"type":"error","message":"{exc}"}}\n\n'
+        return StreamingResponse(_err(), media_type="text/event-stream")
+
+    # Kick off the download thread (only one at a time)
+    if _download_thread is None or not _download_thread.is_alive():
+        _dl_progress["stage"] = "idle"
+        _dl_progress["error"] = None
+        _dl_progress["base_pct"] = 0
+        _dl_progress["lora_pct"] = 0
+        _dl_progress["message"] = "Starting…"
+        _download_thread = threading.Thread(
+            target=_run_download, args=(bayan,), daemon=True
+        )
+        _download_thread.start()
+
+    async def _stream():
+        while True:
+            prog = dict(_dl_progress)
+            if prog["error"]:
+                payload = _json_mod.dumps({"type": "error", "message": prog["error"]}, ensure_ascii=False)
+                yield f"data: {payload}\n\n"
+                return
+            if prog["stage"] == "done":
+                payload = _json_mod.dumps({"type": "done"}, ensure_ascii=False)
+                yield f"data: {payload}\n\n"
+                return
+            # Progress update
+            payload = _json_mod.dumps(
+                {
+                    "stage":    prog["stage"],
+                    "base_pct": prog["base_pct"],
+                    "lora_pct": prog["lora_pct"],
+                    "message":  prog["message"],
+                },
+                ensure_ascii=False,
+            )
+            yield f"data: {payload}\n\n"
+            await asyncio.sleep(0.6)
+
+    return StreamingResponse(
+        _stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.post("/api/synthesize")
 async def synthesize(req: SynthesizeRequest):
     """Synthesize speech and return WAV audio."""
+    if not _models_ready:
+        raise HTTPException(status_code=503, detail={"error": "models_not_ready", "hint": "Complete first-run setup before synthesizing."})
     tts = _get_tts()
 
     # Resolve bare voice filename → absolute path so the model can load it.
@@ -328,6 +561,8 @@ async def synthesize(req: SynthesizeRequest):
 @app.post("/api/tashkeel")
 async def tashkeel(req: TashkeelRequest):
     """Auto-diacritize Arabic text."""
+    if not _models_ready:
+        raise HTTPException(status_code=503, detail={"error": "models_not_ready", "hint": "Complete first-run setup."})
     try:
         from bayansynthtts.tashkeel import auto_diacritize, detect_diacritization_ratio
         result = auto_diacritize(req.text)
@@ -523,6 +758,8 @@ async def pitch_detect(file: UploadFile = File(...)):
 @app.post("/api/audition")
 async def audition(req: AuditionRequest):
     """Quick synthesis preview, truncated to max_duration seconds."""
+    if not _models_ready:
+        raise HTTPException(status_code=503, detail={"error": "models_not_ready", "hint": "Complete first-run setup."})
     tts = _get_tts()
 
     resolved_voice = _resolve_voice_path(tts, req.voice)
@@ -586,6 +823,8 @@ async def phonemize(req: PhonemeRequest):
 @app.post("/api/export")
 async def export_timeline(req: ExportRequest):
     """Render a timeline of nodes into a single WAV file."""
+    if not _models_ready:
+        raise HTTPException(status_code=503, detail={"error": "models_not_ready", "hint": "Complete first-run setup."})
     tts = _get_tts()
     sr = req.sample_rate
 
