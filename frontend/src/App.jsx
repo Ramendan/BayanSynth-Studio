@@ -46,7 +46,7 @@ import {
 } from './store/atoms';
 import { undoAtom, redoAtom } from './store/history';
 import { saveProjectAtom, openProjectAtom } from './store/project';
-import { listVoices, synthesize, exportTimeline } from './api';
+import { listVoices, synthesize, exportTimeline, getSetupStatus } from './api';
 import { getEngine } from './audio/AudioEngine';
 import { getTransport } from './audio/TransportController';
 import { TOOLS } from './utils/constants';
@@ -61,10 +61,13 @@ import HelpPanel from './components/HelpPanel';
 import ContextMenu from './components/ContextMenu';
 import SettingsPanel from './components/SettingsPanel';
 import VoiceClonePanel from './components/VoiceClonePanel';
+import SetupScreen from './components/SetupScreen';
 
 export default function App() {
   const [loading, setLoading] = useState(true);
   const [loadingMsg, setLoadingMsg] = useState('Initializing...');
+  // null = checking, false = needs first-run setup, true = models present
+  const [setupReady, setSetupReady] = useState(null);
   const setVoices = useSetAtom(voicesAtom);
   const setStatus = useSetAtom(statusTextAtom);
   const tracks = useAtomValue(tracksAtom);
@@ -117,6 +120,16 @@ export default function App() {
           setLoadingMsg(`Waiting for backend... (${attempts}/10)`);
           await new Promise(r => setTimeout(r, 1500));
         }
+
+        // Check whether models are present (first-run setup guard)
+        setLoadingMsg('Checking models...');
+        const setup = await getSetupStatus();
+        if (mounted && !setup.ready) {
+          setSetupReady(false);
+          setLoading(false);
+          return; // hand off to <SetupScreen>
+        }
+        if (mounted) setSetupReady(true);
 
         setLoadingMsg('Loading voices...');
         const voices = await listVoices(settings.customVoicesDir || null).catch(() => []);
@@ -412,6 +425,30 @@ export default function App() {
     window.__studio = { synthesizeNode, synthesizeAll };
     return () => { delete window.__studio; };
   }, [synthesizeNode, synthesizeAll]);
+
+  // ── First-run Setup Screen ────────────────────
+  if (setupReady === false) {
+    return (
+      <SetupScreen
+        onSetupComplete={async () => {
+          setSetupReady(null);
+          setLoading(true);
+          setLoadingMsg('Verifying models…');
+          const setup = await getSetupStatus().catch(() => ({ ready: true }));
+          if (setup.ready) {
+            setSetupReady(true);
+            const voices = await listVoices(settings.customVoicesDir || null).catch(() => []);
+            setVoices(voices);
+            setLoading(false);
+            setStatus('Ready');
+          } else {
+            setSetupReady(false);
+            setLoading(false);
+          }
+        }}
+      />
+    );
+  }
 
   // ── Loading Screen ───────────────────────────
   if (loading) {

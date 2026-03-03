@@ -39,8 +39,8 @@ You only need to do this once.
 Open a terminal (search for **Command Prompt** or **PowerShell** in the Start menu) and run:
 
 ```bat
-git clone https://github.com/Ramendan/BayanSynth-Studio.git
-cd BayanSynth-Studio
+git clone https://github.com/Ramendan/CosyVoice-Arabic.git
+cd CosyVoice-Arabic\demos\studio
 ```
 
 ### Step 2 — Run setup
@@ -118,11 +118,11 @@ If you want to give someone the app without them needing Python or Node.js, you 
 ### Prerequisites
 
 - Complete the full installation above (Steps 1–2) so all dependencies are present
-- Make sure `npm install` has been run in the root folder (setup.bat does this automatically)
+- Make sure `npm install` has been run inside `demos/studio/` (setup.bat does this automatically)
 
 ### Build
 
-From in the root folder:
+From inside `demos/studio/`:
 
 ```bat
 npm run build
@@ -139,7 +139,7 @@ Just send the `.exe` to a friend. No Python, no Node.js, no terminal required.
 
 ### Adding a custom icon (optional)
 
-Create `assets/` and put your icon there:
+Create `demos/studio/assets/` and put your icon there:
 
 ```
 assets/
@@ -147,7 +147,7 @@ assets/
   icon.icns   ← macOS
 ```
 
-Then in `package.json` under `"build"` add:
+Then in `demos/studio/package.json` under `"build"` add:
 
 ```json
 "win": { "target": [...], "icon": "assets/icon.ico" },
@@ -179,38 +179,38 @@ Re-run `npm run build` to pick up the icon.
 ### 1. Clone the repository
 
 ```bat
-git clone https://github.com/Ramendan/BayanSynth-Studio.git
-cd BayanSynth-Studio
+git clone https://github.com/Ramendan/CosyVoice-Arabic.git
+cd CosyVoice-Arabic
 ```
 
-The repo contains the studio directly — no subdirectory to navigate into.
+The studio lives at `demos/studio/` inside the repo.
 
 ### 2. Python environment
 
 ```bat
 python -m venv .venv
 call .venv\Scripts\activate.bat
-pip install -r backend\requirements.txt
+pip install -r demos\studio\backend\requirements.txt
 ```
 
 ### 3. Node dependencies
 
 ```bat
-cd 
+cd demos\studio
 npm install
 ```
 
 ### 4. Run in dev mode
 
 ```bat
-REM Terminal 1 — backend  (from )
+REM Terminal 1 — backend  (from demos\studio)
 call ..\..\..venv\Scripts\activate.bat
 python backend\server.py
 
-REM Terminal 2 — frontend hot-reload  (from frontend)
+REM Terminal 2 — frontend hot-reload  (from demos\studio\frontend)
 npm run dev
 
-REM Or start both at once from :
+REM Or start both at once from demos\studio:
 npm run dev
 ```
 
@@ -219,16 +219,17 @@ The app opens at `http://localhost:5177`.
 ### 5. Build the packaged app
 
 ```bat
-REM From 
+REM From demos\studio
 npm run build
 ```
 
-Outputs an installer + portable `.exe` to `dist/`.
+Outputs an installer + portable `.exe` to `demos/studio/dist/`.
 
 ### Project layout
 
 ```
-BayanSynth-Studio/
+CosyVoice-Arabic/
+└── demos/studio/
     ├── setup.bat              ← First-time setup for end-users
     ├── start_studio.bat       ← Daily launcher
     ├── package.json           ← Electron + electron-builder config
@@ -264,5 +265,3 @@ CosyVoice 3 model weights are subject to [FunAudioLLM's model license](https://h
 - [FunAudioLLM / CosyVoice](https://github.com/FunAudioLLM/CosyVoice) — base TTS model  
 - BayanSynthTTS — Arabic fine-tuning  
 - [Matcha-TTS](https://github.com/shivammehta25/Matcha-TTS) — flow matching vocoder
-
-

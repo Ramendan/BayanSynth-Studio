@@ -15,6 +15,53 @@
 
 const API_BASE = '/api';
 
+// ── Setup / first-run ─────────────────────────────
+/**
+ * Check whether the required model files are present on the backend host.
+ * Returns { ready: bool, base_model: bool, lora: bool }.
+ * Falls back to { ready: true } when the backend is unreachable (dev mode).
+ */
+export async function getSetupStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/setup/status`);
+    if (!res.ok) return { ready: true };
+    return res.json();
+  } catch {
+    return { ready: true };
+  }
+}
+
+/**
+ * Open an SSE stream that triggers the background model download and reports
+ * live progress back to the caller.
+ *
+ * @param {(progress: {stage,base_pct,lora_pct,message}) => void} onProgress
+ * @param {() => void} onDone   called when stage === 'done'
+ * @param {(msg: string) => void} onError  called on error events or lost connection
+ * @returns {() => void}  cleanup function — call to close the SSE stream
+ */
+export function streamModelDownload(onProgress, onDone, onError) {
+  const es = new EventSource(`${API_BASE}/setup/download`);
+
+  es.onmessage = (evt) => {
+    try {
+      const d = JSON.parse(evt.data);
+      if (d.type === 'done')        { es.close(); onDone(); }
+      else if (d.type === 'error')  { es.close(); onError(d.message || 'Unknown error'); }
+      else                          { onProgress(d); }
+    } catch {
+      // malformed event — ignore
+    }
+  };
+
+  es.onerror = () => {
+    es.close();
+    onError('Connection to backend lost. Is the server running?');
+  };
+
+  return () => es.close();
+}
+
 /**
  * Compose the instruct string from a speaking-style instruction.
  * The backend's BayanSynthTTS.synthesize() auto-appends <|endofprompt|>
