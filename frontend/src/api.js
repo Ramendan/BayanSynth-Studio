@@ -13,7 +13,20 @@
  *   GET  /api/status          — Backend health check
  */
 
-const API_BASE = '/api';
+// In the packaged Electron app the frontend is served via the file:// protocol.
+// Relative paths like '/api' resolve as file:///api/... and never reach the
+// Python backend. Detect the protocol and use the explicit localhost URL instead.
+// In dev mode (Vite proxy, http://localhost:...) the relative path works fine.
+const API_BASE =
+  typeof window !== 'undefined' && window.location.protocol === 'file:'
+    ? 'http://localhost:8910/api'
+    : '/api';
+
+// Same fix for the /voices static mount used in audio Players.
+export const VOICES_BASE =
+  typeof window !== 'undefined' && window.location.protocol === 'file:'
+    ? 'http://localhost:8910/voices'
+    : '/voices';
 
 // ── Setup / first-run ─────────────────────────────
 /**
