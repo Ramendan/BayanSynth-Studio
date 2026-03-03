@@ -368,6 +368,12 @@ async def setup_status():
 _BASE_MODEL_EXPECTED_BYTES = 3_000_000_000   # ~3 GB
 _LORA_EXPECTED_BYTES       = 1_500_000_000   # ~1.5 GB
 
+# Hugging Face repo IDs — mirrored from setup_models.py so the packaged app
+# has no dependency on that script (which lives in BayanSynthTTS/scripts/).
+_HF_BASE_REPO_ID  = "FunAudioLLM/Fun-CosyVoice3-0.5B-2512"
+_HF_CKPT_REPO_ID  = "Ramendan/BayanSynthTTS-checkpoints"
+_HF_CKPT_FILENAME = "epoch_28_whole.pt"
+
 
 def _dir_size(path: Path) -> int:
     """Sum of all file sizes under *path* (non-recursive would miss sub-dirs)."""
@@ -385,23 +391,25 @@ def _dir_size(path: Path) -> int:
 
 
 def _run_download(bayan: Path) -> None:
-    """Background thread: download base model then LoRA, updating _dl_progress."""
+    """Background thread: download base model then LoRA, updating _dl_progress.
+
+    Uses huggingface_hub directly — no dependency on setup_models.py, so this
+    works both in dev and in the packaged .exe.
+    """
     global _dl_progress, _models_ready, _TTS
 
-    # Make sure the setup_models script is importable
-    scripts_dir = str(bayan / "scripts")
-    if scripts_dir not in sys.path:
-        sys.path.insert(0, scripts_dir)
-
     try:
-        import setup_models as sm
-    except ImportError as exc:
-        _dl_progress["error"] = f"Cannot import setup_models: {exc}"
+        from huggingface_hub import snapshot_download, hf_hub_download
+    except ImportError:
+        _dl_progress["error"] = (
+            "huggingface_hub is not installed. "
+            "Run: pip install huggingface_hub"
+        )
         _dl_progress["stage"] = "error"
         return
 
     model_dir = bayan / "pretrained_models" / "CosyVoice3"
-    lora_path = bayan / "checkpoints" / "llm" / "epoch_28_whole.pt"
+    lora_path = bayan / "checkpoints" / "llm" / _HF_CKPT_FILENAME
 
     # ── Stage 1: base model ──────────────────────────────────────────
     _dl_progress["stage"] = "base"
@@ -417,7 +425,14 @@ def _run_download(bayan: Path) -> None:
     poll_t.start()
 
     try:
-        sm.download_base_model(model_dir, force=False)
+        if not model_dir.exists():
+            model_dir.mkdir(parents=True, exist_ok=True)
+        snapshot_download(
+            repo_id=_HF_BASE_REPO_ID,
+            local_dir=str(model_dir),
+            ignore_patterns=["*.msgpack", "flax_model*", "tf_model*"],
+        )
+        print(f"[Studio] Base model downloaded to {model_dir}")
     except Exception as exc:
         _dl_progress["error"] = f"Base model download failed: {exc}"
         _dl_progress["stage"] = "error"
@@ -436,7 +451,7 @@ def _run_download(bayan: Path) -> None:
                 pct = min(99, int(lora_path.stat().st_size * 100 / _LORA_EXPECTED_BYTES))
             else:
                 pct = 0
-            # Also check for partial files in the same dir
+            # Also check for partial / in-progress files in the same dir
             parent = lora_path.parent
             if parent.is_dir():
                 for f in parent.iterdir():
@@ -452,7 +467,13 @@ def _run_download(bayan: Path) -> None:
     poll_t2.start()
 
     try:
-        sm.download_checkpoints(force=False)
+        lora_path.parent.mkdir(parents=True, exist_ok=True)
+        hf_hub_download(
+            repo_id=_HF_CKPT_REPO_ID,
+            filename=_HF_CKPT_FILENAME,
+            local_dir=str(lora_path.parent),
+        )
+        print(f"[Studio] LoRA downloaded to {lora_path}")
     except Exception as exc:
         _dl_progress["error"] = f"LoRA download failed: {exc}"
         _dl_progress["stage"] = "error"
