@@ -27,62 +27,108 @@ import time
 import uuid
 from pathlib import Path
 
-# ── Portable BayanSynthTTS discovery ────────────────────────────────────────
-# Priority order:
-#  1. BAYANSYNTH_ROOT env var  (set by the user or an installer script)
-#  2. studio/backend/lib/BayanSynthTTS  (bundled — see bundle_deps.bat)
-#  3. Walk upward looking for a sibling BayanSynthTTS/ dir (in-repo layout)
+# ── BayanSynthTTS path discovery ─────────────────────────────────────────────
+#
+# Two concerns are kept SEPARATE:
+#
+#   1. PACKAGE root  — the directory that contains the bayansynthtts/ Python
+#      package (needed for imports).  Found via bundled lib/ or walk-up.
+#      The BAYANSYNTH_ROOT env var is intentionally NOT used here because it
+#      may point to a user-data folder that has NO bayansynthtts/ package.
+#
+#   2. MODEL storage root  — where model files (pretrained_models/, checkpoints/)
+#      live or will be downloaded.  When BAYANSYNTH_ROOT is set we use it
+#      (creates the dir if needed); otherwise falls back to the package root.
+#
+# Both functions return None / fallback gracefully — the server must ALWAYS
+# start so the setup screen can trigger a download on first run.
 
 _BACKEND_DIR = Path(__file__).resolve().parent
 
-def _find_bayansynth_root() -> Path:
-    # 1. Explicit env override
-    env = os.environ.get("BAYANSYNTH_ROOT")
-    if env:
-        p = Path(env)
-        if p.is_dir():
-            return p
 
-    # 2. Bundled inside this studio (backend/lib/BayanSynthTTS)
+def _find_package_root() -> Path | None:
+    """Return the BayanSynthTTS repo root that contains bayansynthtts/, or None."""
+    # 1. Bundled inside backend/lib/
     bundled = _BACKEND_DIR / "lib" / "BayanSynthTTS"
     if bundled.is_dir() and (bundled / "bayansynthtts").is_dir():
         return bundled
 
-    # 3. Walk up from backend/ looking for a BayanSynthTTS sibling directory
+    # 2. Walk up from backend/ — covers in-repo and dist/ layouts
     probe = _BACKEND_DIR
-    for _ in range(6):
+    for _ in range(10):
         probe = probe.parent
         candidate = probe / "BayanSynthTTS"
         if candidate.is_dir() and (candidate / "bayansynthtts").is_dir():
             return candidate
 
-    raise RuntimeError(
-        "BayanSynthTTS not found.\n"
-        "Solutions:\n"
-        "  • Set BAYANSYNTH_ROOT=<path> in your environment, OR\n"
-        "  • Run  bundle_deps.bat  (copies BayanSynthTTS into backend/lib/), OR\n"
-        "  • Run the studio from inside the CosyVoice repository."
-    )
+    return None
 
 
-BAYAN_LIB_DIR = str(_find_bayansynth_root())
-if BAYAN_LIB_DIR not in sys.path:
-    sys.path.insert(0, BAYAN_LIB_DIR)
+def _get_model_storage_root() -> Path:
+    """Return (and create) the directory used for model storage.
 
-# Also add the parent of BAYAN_LIB_DIR so that `cosyvoice` and `matcha`
-# packages bundled at backend/lib/ (by bundle_deps.bat) are importable.
-_BAYAN_PARENT = str(Path(BAYAN_LIB_DIR).parent)
-if _BAYAN_PARENT not in sys.path:
-    sys.path.insert(0, _BAYAN_PARENT)
+    Priority:
+      1. BAYANSYNTH_ROOT env var  (set by main.js for packaged builds →
+         AppData/Roaming/BayanSynth Studio/, always writable)
+      2. Package root found via walk-up  (dev/in-repo layout)
+      3. backend/models/ as a last resort
+    """
+    env = os.environ.get("BAYANSYNTH_ROOT")
+    if env:
+        p = Path(env)
+        p.mkdir(parents=True, exist_ok=True)
+        return p
 
-# Also add backend/lib/third_party/Matcha-TTS to cover the matcha fallback
-# path used by inference.py (REPO_ROOT/third_party/Matcha-TTS)
-_MATCHA_PATH = str(Path(_BAYAN_PARENT) / "third_party" / "Matcha-TTS")
-if os.path.isdir(_MATCHA_PATH) and _MATCHA_PATH not in sys.path:
-    sys.path.insert(0, _MATCHA_PATH)
+    pkg = _find_package_root()
+    if pkg is not None:
+        return pkg
+
+    fallback = _BACKEND_DIR / "models"
+    fallback.mkdir(parents=True, exist_ok=True)
+    return fallback
+
+
+# Backwards-compat alias used by older call sites that expect a single root.
+# Returns the package root when bayansynthtts is importable, otherwise the
+# model-storage root (so the 503/setup checks can still locate model files).
+def _find_bayansynth_root() -> Path | None:
+    pkg = _find_package_root()
+    if pkg is not None:
+        return pkg
+    # No package root — fall back to model storage so callers can inspect it
+    env = os.environ.get("BAYANSYNTH_ROOT")
+    if env:
+        p = Path(env)
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+    return None
+
+
+# ── Add BayanSynthTTS to sys.path so bayansynthtts.* are importable ──────────
+_PKG_ROOT: Path | None = _find_package_root()
+
+if _PKG_ROOT is not None:
+    _pkg_root_str = str(_PKG_ROOT)
+    if _pkg_root_str not in sys.path:
+        sys.path.insert(0, _pkg_root_str)
+
+    # Also expose cosyvoice/ and matcha/ that live inside the same repo
+    _PKG_PARENT = str(_PKG_ROOT.parent)
+    if _PKG_PARENT not in sys.path:
+        sys.path.insert(0, _PKG_PARENT)
+
+    _MATCHA_PATH = str(_PKG_ROOT.parent / "third_party" / "Matcha-TTS")
+    if os.path.isdir(_MATCHA_PATH) and _MATCHA_PATH not in sys.path:
+        sys.path.insert(0, _MATCHA_PATH)
+
+    BAYAN_LIB_DIR = _pkg_root_str
+    print(f"[Studio] BayanSynthTTS package root: {_PKG_ROOT}")
+else:
+    BAYAN_LIB_DIR = ""
+    print("[Studio] WARNING: BayanSynthTTS package not found — synthesis unavailable until bundled.")
 
 # Voices directory
-_LEGACY_VOICES_DIR = os.path.join(BAYAN_LIB_DIR, "voices")
+_LEGACY_VOICES_DIR = os.path.join(BAYAN_LIB_DIR, "voices") if BAYAN_LIB_DIR else ""
 
 import numpy as np
 import unicodedata
@@ -190,21 +236,60 @@ _dl_progress: dict = {
 
 
 def _bayan_has_models() -> bool:
-    """Return True when both the base model dir and LoRA checkpoint exist."""
-    try:
-        bayan = _find_bayansynth_root()
-        base_ok = (bayan / "pretrained_models" / "CosyVoice3").is_dir()
-        lora_ok = (bayan / "checkpoints" / "llm" / "epoch_28_whole.pt").is_file()
-        return base_ok and lora_ok
-    except Exception:
-        return False
+    """Return True when both the base model dir and LoRA checkpoint exist.
+
+    Checks both the model storage root (BAYANSYNTH_ROOT or package root)
+    and, as a fallback, the package root itself to avoid false negatives
+    when BAYANSYNTH_ROOT points to an empty first-run AppData dir while
+    models already exist in the BayanSynthTTS repo.
+    """
+    candidates: list[Path] = []
+    candidates.append(_get_model_storage_root())
+    pkg = _find_package_root()
+    if pkg is not None and pkg not in candidates:
+        candidates.append(pkg)
+
+    for d in candidates:
+        try:
+            base_ok = (d / "pretrained_models" / "CosyVoice3").is_dir()
+            lora_ok = (d / "checkpoints" / "llm" / "epoch_28_whole.pt").is_file()
+            if base_ok and lora_ok:
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def _locate_model_dir() -> Path | None:
+    """Return the directory that actually has model files in it, or None."""
+    candidates: list[Path] = []
+    candidates.append(_get_model_storage_root())
+    pkg = _find_package_root()
+    if pkg is not None and pkg not in candidates:
+        candidates.append(pkg)
+
+    for d in candidates:
+        try:
+            if (d / "pretrained_models" / "CosyVoice3").is_dir():
+                return d
+        except Exception:
+            pass
+    return None
 
 
 def _get_tts():
     global _TTS, _models_ready
     if _TTS is None:
         from bayansynthtts.inference import BayanSynthTTS
-        _TTS = BayanSynthTTS()
+        model_root = _locate_model_dir()
+        if model_root is not None:
+            model_dir   = str(model_root / "pretrained_models" / "CosyVoice3")
+            llm_ckpt    = str(model_root / "checkpoints" / "llm" / "epoch_28_whole.pt")
+            llm_ckpt_kw = {"llm_checkpoint": llm_ckpt} if Path(llm_ckpt).is_file() else {}
+            _TTS = BayanSynthTTS(model_dir=model_dir, **llm_ckpt_kw)
+        else:
+            # No explicit root found — let bayansynthtts use its own defaults
+            _TTS = BayanSynthTTS()
         _models_ready = True
     return _TTS
 
@@ -342,11 +427,22 @@ async def setup_status():
         lora_path  — Absolute path where the LoRA checkpoint will be / is saved
     """
     try:
-        bayan     = _find_bayansynth_root()
-        model_dir = bayan / "pretrained_models" / "CosyVoice3"
-        lora_path = bayan / "checkpoints" / "llm" / "epoch_28_whole.pt"
+        storage   = _get_model_storage_root()
+        model_dir = storage / "pretrained_models" / "CosyVoice3"
+        lora_path = storage / "checkpoints" / "llm" / "epoch_28_whole.pt"
         base_ok   = model_dir.is_dir()
         lora_ok   = lora_path.is_file()
+        # Also allow models that live in the package root (dev mode)
+        if not (base_ok and lora_ok):
+            pkg = _find_package_root()
+            if pkg is not None and pkg != storage:
+                pkg_base = (pkg / "pretrained_models" / "CosyVoice3").is_dir()
+                pkg_lora = (pkg / "checkpoints" / "llm" / "epoch_28_whole.pt").is_file()
+                if pkg_base and pkg_lora:
+                    base_ok = True
+                    lora_ok = True
+                    model_dir = pkg / "pretrained_models" / "CosyVoice3"
+                    lora_path = pkg / "checkpoints" / "llm" / "epoch_28_whole.pt"
     except Exception:
         bayan     = Path("?")
         model_dir = Path("?")
@@ -509,12 +605,7 @@ async def setup_download():
     """
     global _download_thread
 
-    try:
-        bayan = _find_bayansynth_root()
-    except RuntimeError as exc:
-        async def _err():
-            yield f'data: {{"type":"error","message":"{exc}"}}\n\n'
-        return StreamingResponse(_err(), media_type="text/event-stream")
+    bayan = _get_model_storage_root()
 
     # Kick off the download thread (only one at a time)
     if _download_thread is None or not _download_thread.is_alive():

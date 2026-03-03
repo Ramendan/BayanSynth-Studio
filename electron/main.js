@@ -78,6 +78,22 @@ function createWindow() {
   });
 }
 
+/**
+ * Walk upward from a starting directory looking for a .venv with python.exe.
+ * Returns the python.exe path or null.
+ */
+function findVenvPython(startDir, maxLevels = 8) {
+  let dir = startDir;
+  for (let i = 0; i < maxLevels; i++) {
+    const candidate = path.join(dir, '.venv', 'Scripts', 'python.exe');
+    if (fs.existsSync(candidate)) return candidate;
+    const parent = path.dirname(dir);
+    if (parent === dir) break; // reached root
+    dir = parent;
+  }
+  return null;
+}
+
 function startBackend() {
   const studioRoot = path.join(__dirname, '..');
 
@@ -89,16 +105,24 @@ function startBackend() {
     const repoVenv  = path.join(studioRoot, '..', '..', '.venv', 'Scripts', 'python.exe');
     pythonPath = fs.existsSync(localVenv) ? localVenv : repoVenv;
   } else {
-    // Packaged app: try bundled python, then venv under resources, then system PATH
+    // Packaged app: try several locations for a working Python.
     const bundled   = path.join(process.resourcesPath, 'backend', 'python.exe');
     const venvPy    = path.join(process.resourcesPath, 'backend', '.venv', 'Scripts', 'python.exe');
+
     if (fs.existsSync(bundled)) {
       pythonPath = bundled;
     } else if (fs.existsSync(venvPy)) {
       pythonPath = venvPy;
     } else {
-      // Fall back to system Python (must be on PATH)
-      pythonPath = process.platform === 'win32' ? 'python' : 'python3';
+      // Walk upward from the exe looking for a .venv (e.g. when the build
+      // output lives inside the CosyVoice repo at demos/studio/dist/).
+      const walked = findVenvPython(process.resourcesPath);
+      if (walked) {
+        pythonPath = walked;
+      } else {
+        // Last resort: system Python on PATH
+        pythonPath = process.platform === 'win32' ? 'python' : 'python3';
+      }
     }
   }
 
