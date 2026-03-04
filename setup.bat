@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 :: BayanSynth Studio — complete first-time setup
 ::
 :: WHAT THIS DOES (in order):
