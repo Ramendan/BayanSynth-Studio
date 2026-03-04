@@ -79,12 +79,6 @@ export async function pitchShift(ctx, buffer, semitones) {
  */
 async function _timeStretchWasm(ctx, buffer, timeRatio, pitchScale) {
   // TODO: Implement when Rubberband WASM binary interface is finalized.
-  // The Rubberband C API exposes:
-  //   rubberband_new(sampleRate, channels, options, timeRatio, pitchScale)
-  //   rubberband_process(state, input, samples, final)
-  //   rubberband_retrieve(state, output, samples)
-  //
-  // For now, fall through to the fallback.
   return _timeStretchFallback(ctx, buffer, timeRatio, pitchScale);
 }
 
@@ -111,6 +105,59 @@ async function _timeStretchFallback(ctx, buffer, timeRatio, pitchScale) {
 
   const rendered = await offline.startRendering();
   return rendered;
+}
+
+/**
+ * Overlap-Add (OLA) time-stretch a single-channel Float32Array to a target length.
+ *
+ * Used as the second stage of pitch shifting: after resampling changes pitch AND
+ * duration, OLA restores the original duration without re-shifting pitch.
+ *
+ * Quality: preview-grade — slight smearing on transients but correct duration.
+ *
+ * @param {Float32Array} data   — mono input (already pitch-shifted via resampling)
+ * @param {number} targetLength — desired output length in samples
+ * @returns {Float32Array}
+ */
+export function olaTimeStretch(data, targetLength) {
+  const srcLength = data.length;
+  if (srcLength === targetLength) return data;
+
+  const ratio = srcLength / targetLength;          // < 1 = stretch, > 1 = compress
+  const windowSize = 1024;
+  const hopOut = Math.max(1, Math.floor(windowSize / 4));   // output hop (75% overlap)
+  const hopIn  = Math.max(1, Math.round(hopOut * ratio));   // mapped input hop
+
+  const output = new Float32Array(targetLength);
+  const norm   = new Float32Array(targetLength);
+
+  // Hann window
+  const hann = new Float32Array(windowSize);
+  for (let i = 0; i < windowSize; i++) {
+    hann[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / windowSize));
+  }
+
+  let inPos = 0;
+  for (let outPos = 0; outPos < targetLength; outPos += hopOut) {
+    const grainEnd = Math.min(windowSize, targetLength - outPos);
+    const inStart  = Math.round(inPos);
+    for (let i = 0; i < grainEnd; i++) {
+      const s = inStart + i;
+      if (s >= srcLength) break;
+      const w = hann[i];
+      output[outPos + i] += data[s] * w;
+      norm  [outPos + i] += w * w;
+    }
+    inPos += hopIn;
+    if (inPos >= srcLength) break;
+  }
+
+  // Normalise overlapping windows
+  for (let i = 0; i < targetLength; i++) {
+    if (norm[i] > 1e-6) output[i] /= norm[i];
+  }
+
+  return output;
 }
 
 /**

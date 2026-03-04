@@ -39,6 +39,7 @@ import {
   dragGhostAtom,
   endNodeTimeAtom,
   selectedNodeIdsAtom,
+  showPitCurveAtom,
 } from '../../store/atoms';
 import { pushHistoryAtom } from '../../store/history';
 import {
@@ -82,6 +83,7 @@ export default function PianoRoll() {
   const endNodeTime = useAtomValue(endNodeTimeAtom);
   const dragGhost = useAtomValue(dragGhostAtom);
   const setDragGhost = useSetAtom(dragGhostAtom);
+  const showPitCurve = useAtomValue(showPitCurveAtom);
 
   const addNode = useSetAtom(addNodeAtom);
   const updateNode = useSetAtom(updateNodeAtom);
@@ -370,13 +372,29 @@ export default function PianoRoll() {
     setEndNodeTime(Math.max(0, timeSec));
   }, [pan.x, ppb, bpm, setEndNodeTime]);
 
-  // Handle playhead drag (triangle at top)
+  // Handle playhead drag (triangle at top) — used by Layer 3 (legacy, kept for safety)
   const handlePlayheadDrag = useCallback((e) => {
     const x = e.target.x();
     const beats = (x + pan.x) / ppb;
     const timeSec = Math.max(0, (beats * 60) / bpm);
     setPlayhead(timeSec);
   }, [pan.x, ppb, bpm, setPlayhead]);
+
+  // Handle playhead drag in overlay Layer 4 (absolute stage coords, includes PIANO_KEY_WIDTH)
+  const handlePlayheadDragL4 = useCallback((e) => {
+    const x = e.target.x() - PIANO_KEY_WIDTH;
+    const beats = (x + pan.x) / ppb;
+    const timeSec = Math.max(0, (beats * 60) / bpm);
+    setPlayhead(timeSec);
+  }, [pan.x, ppb, bpm, setPlayhead]);
+
+  // Handle end marker drag in overlay Layer 4
+  const handleEndMarkerDragL4 = useCallback((e) => {
+    const x = e.target.x() - PIANO_KEY_WIDTH;
+    const beats = (x + pan.x) / ppb;
+    const timeSec = (beats * 60) / bpm;
+    setEndNodeTime(Math.max(0, timeSec));
+  }, [pan.x, ppb, bpm, setEndNodeTime]);
 
   // Compute node screen positions (filter hidden tracks)
   const renderedNodes = useMemo(() => {
@@ -503,53 +521,60 @@ export default function PianoRoll() {
                 panY={pan.y}
                 activeTool={activeTool}
                 selectedNodeId={selectedNodeId}
+                showAutomation={showPitCurve}
+                renderedNodes={renderedNodes}
               />
             ))}
 
-            {/* End Node marker — DRAGGABLE (Item 6) */}
-            {endMarkerX != null && endMarkerX >= -20 && endMarkerX <= gridWidth + 20 && (
-              <Group
-                x={endMarkerX}
-                draggable
-                dragBoundFunc={(pos) => ({ x: pos.x, y: 0 })}
-                onDragMove={(e) => handleEndMarkerDrag(e)}
-                onMouseEnter={(e) => { e.target.getStage().container().style.cursor = 'ew-resize'; }}
-                onMouseLeave={(e) => { e.target.getStage().container().style.cursor = ''; }}
-              >
-                <Line
-                  points={[0, 0, 0, gridHeight]}
-                  stroke="#ff4757"
-                  strokeWidth={2}
-                  dash={[6, 4]}
-                  opacity={0.8}
-                />
-                <Rect x={-8} y={0} width={16} height={16} fill="#ff4757" cornerRadius={2} />
-                <Text x={-6} y={2} text="END" fill="#fff" fontSize={8} fontStyle="bold" fontFamily="Consolas, SF Mono, monospace" />
-              </Group>
-            )}
+          </Layer>
 
-            {/* Playhead line + draggable handle (Item 15) — wide grab area like END */}
+          {/* Layer 4: Unclipped overlay — Playhead + End Marker hats sit in ruler, lines through grid */}
+          <Layer>
+            {/* Playhead — hat in ruler area, line through grid */}
             {playheadX >= -20 && playheadX <= gridWidth + 20 && (
               <Group
-                x={playheadX}
+                x={PIANO_KEY_WIDTH + playheadX}
                 draggable={!isPlaying}
-                dragBoundFunc={(pos) => ({ x: Math.max(0, pos.x), y: 0 })}
-                onDragMove={(e) => handlePlayheadDrag(e)}
+                dragBoundFunc={(pos) => ({ x: Math.max(PIANO_KEY_WIDTH, pos.x), y: 0 })}
+                onDragMove={handlePlayheadDragL4}
                 onMouseEnter={(e) => { if (!isPlaying) e.target.getStage().container().style.cursor = 'ew-resize'; }}
                 onMouseLeave={(e) => { e.target.getStage().container().style.cursor = ''; }}
               >
+                <Rect x={-10} y={2} width={20} height={RULER_HEIGHT - 4} fill="#ffffffcc" cornerRadius={2} opacity={0.9} />
+                <Text x={-5} y={Math.floor(RULER_HEIGHT / 2) - 5} text="▶" fill="#000" fontSize={10} fontStyle="bold" fontFamily="Consolas, SF Mono, monospace" />
                 <Line
-                  points={[0, 0, 0, gridHeight]}
+                  points={[0, RULER_HEIGHT, 0, canvasHeight]}
                   stroke="#ffffff"
                   strokeWidth={1.5}
                   opacity={0.9}
                   shadowColor="#ffffff"
                   shadowBlur={4}
                   shadowOpacity={0.5}
+                  listening={false}
                 />
-                {/* Wide grab handle at top (matches END marker style) */}
-                <Rect x={-10} y={0} width={20} height={18} fill="#ffffffcc" cornerRadius={2} />
-                <Text x={-6} y={3} text="\u25B6" fill="#000" fontSize={10} fontStyle="bold" fontFamily="Consolas, SF Mono, monospace" />
+              </Group>
+            )}
+
+            {/* End Marker — hat in ruler area, line through grid */}
+            {endMarkerX != null && endMarkerX >= -20 && endMarkerX <= gridWidth + 20 && (
+              <Group
+                x={PIANO_KEY_WIDTH + endMarkerX}
+                draggable
+                dragBoundFunc={(pos) => ({ x: Math.max(PIANO_KEY_WIDTH, pos.x), y: 0 })}
+                onDragMove={handleEndMarkerDragL4}
+                onMouseEnter={(e) => { e.target.getStage().container().style.cursor = 'ew-resize'; }}
+                onMouseLeave={(e) => { e.target.getStage().container().style.cursor = ''; }}
+              >
+                <Rect x={-8} y={2} width={16} height={RULER_HEIGHT - 4} fill="#ff4757" cornerRadius={2} />
+                <Text x={-6} y={Math.floor(RULER_HEIGHT / 2) - 4} text="END" fill="#fff" fontSize={8} fontStyle="bold" fontFamily="Consolas, SF Mono, monospace" />
+                <Line
+                  points={[0, RULER_HEIGHT, 0, canvasHeight]}
+                  stroke="#ff4757"
+                  strokeWidth={2}
+                  dash={[6, 4]}
+                  opacity={0.8}
+                  listening={false}
+                />
               </Group>
             )}
           </Layer>

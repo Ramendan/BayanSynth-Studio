@@ -85,7 +85,7 @@ export default function VibLane({ width = 800 }) {
     <div className="param-lane vib-lane">
       {/* Controls row */}
       <div className="vib-controls">
-        <button className="param-lane-reset" onClick={handleReset} title="Reset vibrato">⟲</button>
+        <button className="param-lane-reset-inline" onClick={handleReset} title="Reset vibrato">⟲</button>
         <label className="vib-control">
           <span>Rate</span>
           <input type="range" min="1" max="12" step="0.5" value={vib.rate}

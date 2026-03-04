@@ -9,14 +9,16 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   MousePointer2, Pencil, Scissors, Trash2, Hand,
-  Undo2, Redo2,
+  Undo2, Redo2, Copy,
   Play, Pause, Square, Repeat,
 } from 'lucide-react';
 import {
   activeToolAtom, isPlayingAtom, playheadAtom, tracksAtom,
   isLoopingAtom, endNodeTimeAtom,
+  selectedNodeIdAtom, duplicateSelectedAtom,
 } from '../store/atoms';
 import { undoAtom, redoAtom, canUndoAtom, canRedoAtom } from '../store/history';
+import { pushHistoryAtom } from '../store/history';
 import { getTransport } from '../audio/TransportController';
 import { TOOLS } from '../utils/constants';
 
@@ -33,6 +35,9 @@ export default function Toolbar() {
   const redo = useSetAtom(redoAtom);
   const canUndo = useAtomValue(canUndoAtom);
   const canRedo = useAtomValue(canRedoAtom);
+  const selectedNodeId = useAtomValue(selectedNodeIdAtom);
+  const duplicateSelected = useSetAtom(duplicateSelectedAtom);
+  const pushHistory = useSetAtom(pushHistoryAtom);
 
   const tracksRef = useRef(tracks);
   tracksRef.current = tracks;
@@ -115,7 +120,7 @@ export default function Toolbar() {
         </button>
       </div>
 
-      {/* Undo / Redo */}
+      {/* Undo / Redo / Duplicate */}
       <div className="toolbar-group">
         <button
           className="tool-btn"
@@ -132,6 +137,14 @@ export default function Toolbar() {
           title="Redo (Ctrl+Y)"
         >
           <Redo2 {...ICO} />
+        </button>
+        <button
+          className="tool-btn"
+          onClick={() => { pushHistory(); duplicateSelected(); }}
+          disabled={!selectedNodeId}
+          title="Duplicate Selected Node (Ctrl+D)"
+        >
+          <Copy {...ICO} />
         </button>
       </div>
 

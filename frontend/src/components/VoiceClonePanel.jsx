@@ -65,22 +65,34 @@ export default function VoiceClonePanel() {
 
   // Start recording
   const startRecording = useCallback(async () => {
+    // Guard: don't start if already recording
+    if (mediaRecorderRef.current?.state === 'recording') return;
     try {
+      // Request microphone without sampleRate constraint — browsers typically
+      // run audio at 44.1 kHz or 48 kHz natively; the server resamples to 24 kHz.
+      // Requesting an unsupported sampleRate can throw NotSupportedError.
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
-          sampleRate: 24000,
           echoCancellation: true,
           noiseSuppression: true,
+          autoGainControl: true,
         }
       });
       streamRef.current = stream;
 
-      const recorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : 'audio/webm',
-      });
+      // Find the best supported mimeType — don't force an unsupported one
+      const mimeType = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+      ].find(m => MediaRecorder.isTypeSupported(m)) || '';
+
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+
       mediaRecorderRef.current = recorder;
       chunksRef.current = [];
 
@@ -89,7 +101,7 @@ export default function VoiceClonePanel() {
       };
 
       recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
         setAudioBlob(blob);
         const url = URL.createObjectURL(blob);
         if (audioUrl) URL.revokeObjectURL(audioUrl);
@@ -128,9 +140,9 @@ export default function VoiceClonePanel() {
     }
   }, [audioUrl, setStatus]);
 
-  // Stop recording
+  // Stop recording — checks mediaRecorder state directly (avoids stale React closure)
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && recording) {
+    if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop();
       setRecording(false);
       if (timerRef.current) {
@@ -139,7 +151,7 @@ export default function VoiceClonePanel() {
       }
       setStatus('Recording stopped — preview and save your voice');
     }
-  }, [recording, setStatus]);
+  }, [setStatus]);
 
   // Play preview
   const playPreview = useCallback(() => {
@@ -205,6 +217,17 @@ export default function VoiceClonePanel() {
       setStatus(`Delete failed: ${err.message}`);
     }
   }, [savedVoicePath, setVoices, setStatus]);
+
+  // Play a voice from the library (streamed from /voices/)
+  const playLibraryVoice = useCallback((voiceFile) => {
+    if (audioPlayerRef.current) audioPlayerRef.current.pause();
+    const audio = new Audio(`/voices/${encodeURIComponent(voiceFile)}`);
+    audioPlayerRef.current = audio;
+    audio.play().catch(() => {
+      // Fallback: can't preview (built-in voices aren't served via /voices/)
+      setStatus(`Cannot preview built-in voice: ${voiceFile}`);
+    });
+  }, [setStatus]);
 
   // Apply a library voice to selected node (from the library browser)
   const applyLibraryVoice = useCallback((voiceFile) => {
@@ -421,6 +444,13 @@ export default function VoiceClonePanel() {
                             <Check size={12} strokeWidth={2} /> Apply
                           </button>
                         )}
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => playLibraryVoice(label)}
+                          title="Preview voice"
+                        >
+                          <Play size={12} strokeWidth={2} />
+                        </button>
                         <button
                           className="btn btn-sm btn-danger-sm"
                           onClick={() => handleDeleteVoice(v)}

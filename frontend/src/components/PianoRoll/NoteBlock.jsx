@@ -13,11 +13,21 @@
  */
 
 import React, { useMemo, useRef } from 'react';
-import { Group, Rect, Text, Line } from 'react-konva';
+import { Group, Rect, Text, Line, Circle } from 'react-konva';
 
 const HANDLE_WIDTH = 8;
 const TEXT_RATIO = 0.2;      // top 20% for text
 const WAVE_RATIO = 0.8;      // bottom 80% for waveform
+
+// Badge colours (match EffectsLane / VibLane)
+const BADGE = {
+  reverb:  '#00f0ff',
+  delay:   '#ff2dcc',
+  chorus:  '#a855f7',
+  eq:      '#ffd700',
+  vib:     '#a855f7',
+  trans:   '#22c55e',
+};
 
 export default function NoteBlock({
   node,
@@ -44,6 +54,33 @@ export default function NoteBlock({
   const textHeight = noteHeight * TEXT_RATIO;
   const waveHeight = noteHeight * WAVE_RATIO;
   const clampedWidth = Math.max(noteWidth, 20);
+
+  // ── Badge data ──────────────────────────────────────────────
+  const badges = useMemo(() => {
+    const list = [];
+    // Effects — one dot per enabled effect
+    const fx = node.effects;
+    if (fx?.reverb?.enabled)  list.push({ key: 'reverb',  color: BADGE.reverb,  label: 'R' });
+    if (fx?.delay?.enabled)   list.push({ key: 'delay',   color: BADGE.delay,   label: 'D' });
+    if (fx?.chorus?.enabled)  list.push({ key: 'chorus',  color: BADGE.chorus,  label: 'C' });
+    if (fx?.eq?.enabled)      list.push({ key: 'eq',      color: BADGE.eq,      label: 'E' });
+    return list;
+  }, [node.effects]);
+
+  const hasVib   = (node.automationVIB?.depth ?? 0) > 0;
+  const hasTrans = !!(node.transition && node.transition.type !== 'none');
+
+  // Tiny sine-wave points for vibrato badge (drawn in text band)
+  const vibWavePoints = useMemo(() => {
+    if (!hasVib) return null;
+    const pts = [];
+    const W = 20; const H = 6; const S = 8;
+    for (let i = 0; i <= 12; i++) {
+      const t = i / 12;
+      pts.push(t * W, S + Math.sin(t * Math.PI * 2) * (H / 2));
+    }
+    return pts;
+  }, [hasVib]);
 
   // Generate waveform polyline from node.waveformData
   const waveformPoints = useMemo(() => {
@@ -189,6 +226,79 @@ export default function NoteBlock({
           fontFamily="Consolas, SF Mono, monospace"
           listening={false}
         />
+      )}
+
+      {/* ── Feature badges (text band, right side) ────────────── */}
+      {clampedWidth >= 36 && (
+        <Group listening={false}>
+          {/* Effect dots: up to 4 small circles, right-to-left from right edge */}
+          {badges.map((b, i) => {
+            const cx = clampedWidth - 6 - i * 10;
+            const cy = textHeight / 2;
+            if (cx < 16) return null;
+            return (
+              <Circle
+                key={b.key}
+                x={cx}
+                y={cy}
+                radius={3.5}
+                fill={b.color}
+                shadowColor={b.color}
+                shadowBlur={4}
+                shadowOpacity={0.8}
+                listening={false}
+              />
+            );
+          })}
+
+          {/* Vibrato mini sine wave */}
+          {hasVib && vibWavePoints && (() => {
+            const rightOffset = 6 + badges.length * 10;
+            const x0 = clampedWidth - rightOffset - 24;
+            if (x0 < 6) return null;
+            return (
+              <Line
+                x={x0}
+                points={vibWavePoints}
+                stroke={BADGE.vib}
+                strokeWidth={1.5}
+                tension={0.4}
+                opacity={0.9}
+                shadowColor={BADGE.vib}
+                shadowBlur={4}
+                shadowOpacity={0.6}
+                listening={false}
+              />
+            );
+          })()}
+        </Group>
+      )}
+
+      {/* Transition in-marker: soft green glow on left edge + small arrow */}
+      {hasTrans && (
+        <Group listening={false}>
+          {/* Green glow overlay at left edge */}
+          <Rect
+            x={0}
+            y={0}
+            width={Math.min(18, clampedWidth * 0.25)}
+            height={noteHeight}
+            fill={BADGE.trans + '22'}
+            cornerRadius={[4, 0, 0, 4]}
+          />
+          {/* Arrow "→" label */}
+          <Text
+            x={2}
+            y={textHeight / 2 - 5}
+            text="↝"
+            fill={BADGE.trans}
+            fontSize={10}
+            opacity={0.9}
+            shadowColor={BADGE.trans}
+            shadowBlur={6}
+            shadowOpacity={0.8}
+          />
+        </Group>
       )}
 
       {/* Left Edge Handle (trim) */}

@@ -6,8 +6,8 @@
  */
 
 import React, { useMemo } from 'react';
-import { Group, Line, Circle } from 'react-konva';
-import { PIXELS_PER_BEAT, ROW_HEIGHT, NOTE_RANGE } from '../../utils/constants';
+import { Group, Line, Circle, Rect } from 'react-konva';
+import { PIXELS_PER_BEAT, ROW_HEIGHT, NOTE_RANGE, NOTE_HEIGHT } from '../../utils/constants';
 
 /**
  * Convert a frequency (Hz) to a Y position on the piano roll.
@@ -30,8 +30,87 @@ export default function PitchCurve({
   selectedNodeId,
   onAutomationPointAdd,
   onAutomationPointDrag,
+  // Tile overlay props
+  showAutomation = true,
+  renderedNodes = [],   // nodes with screenX, screenY, screenW, screenH
 }) {
   const ppb = PIXELS_PER_BEAT * zoom;
+
+  // ── Tile overlay: curve drawn within the node tile bounds (showAutomation = false) ──
+  const tileOverlays = useMemo(() => {
+    if (showAutomation) return [];   // global mode — skip tile view
+    const result = [];
+    for (const rn of renderedNodes) {
+      if (!rn.automationPIT || rn.automationPIT.length < 2) continue;
+      const pitMin = rn.pitMin ?? -1200;
+      const pitMax = rn.pitMax ?? 1200;
+      const pitRange = pitMax - pitMin;
+      if (pitRange <= 0) continue;   // guard divide-by-zero
+      const nodeStart = rn.start_time ?? 0;
+      const nodeDur   = Math.max(rn.duration || 1, 0.001);
+      const tileH     = rn.screenH ?? NOTE_HEIGHT;
+      const tileW     = rn.screenW ?? 40;
+      const tileX     = rn.screenX;
+      const tileY     = rn.screenY;
+      const pts       = [...rn.automationPIT].sort((a, b) => a.time - b.time);
+      const linePoints = [];
+      for (const pt of pts) {
+        const fracT = Math.max(0, Math.min(1, (pt.time - nodeStart) / nodeDur));
+        const x = tileX + fracT * tileW;
+        const frac = Math.max(0, Math.min(1, (pt.value - pitMin) / pitRange));
+        const y = tileY + tileH * (1 - frac);
+        linePoints.push(x, y);
+      }
+      const zeroFrac = Math.max(0, Math.min(1, (0 - pitMin) / pitRange));
+      result.push({
+        key: rn.id,
+        linePoints,
+        zeroY: tileY + tileH * (1 - zeroFrac),
+        tileX,
+        tileY,
+        tileW,
+        tileH,
+        isSelected: rn.id === selectedNodeId,
+      });
+    }
+    return result;
+  }, [showAutomation, renderedNodes, selectedNodeId]);
+
+  // ── Global overlay: curve mapped to actual piano-roll pitch Y axis (showAutomation = true) ──
+  const globalOverlays = useMemo(() => {
+    if (!showAutomation) return [];   // tile mode — skip global view
+    const result = [];
+    for (const rn of renderedNodes) {
+      if (!rn.automationPIT || rn.automationPIT.length < 2) continue;
+      const baseMidi  = NOTE_RANGE.center + (rn.pitch_shift || 0);
+      const nodeStart = rn.start_time ?? 0;
+      const nodeDur   = Math.max(rn.duration || 1, 0.001);
+      const tileX     = rn.screenX;
+      const tileW     = rn.screenW ?? 40;
+      const pts       = [...rn.automationPIT].sort((a, b) => a.time - b.time);
+      const linePoints = [];
+      for (const pt of pts) {
+        // X: absolute timeline position
+        const fracT = Math.max(0, Math.min(1, (pt.time - nodeStart) / nodeDur));
+        const x = tileX + fracT * tileW;
+        // Y: MIDI pitch = base + cents offset (1 semitone = 100 cents)
+        const midi = baseMidi + pt.value / 100;
+        const y = (NOTE_RANGE.max - midi - 1) * ROW_HEIGHT - panY;
+        linePoints.push(x, y);
+      }
+      // Base note Y (0¢ offset — where the tile sits)
+      const baseY = (NOTE_RANGE.max - baseMidi - 1) * ROW_HEIGHT - panY;
+      result.push({
+        key: rn.id,
+        linePoints,
+        baseY,
+        tileX,
+        tileW,
+        isSelected: rn.id === selectedNodeId,
+      });
+    }
+    return result;
+  }, [showAutomation, renderedNodes, panY, selectedNodeId]);
 
   // Build pitch contour lines for each node
   const contours = useMemo(() => {
@@ -73,6 +152,48 @@ export default function PitchCurve({
 
   return (
     <Group>
+      {/* ── Tile overlays (off = in-tile mode) ── */}
+      {tileOverlays.map(({ key, linePoints, zeroY, tileX, tileY, tileW, tileH, isSelected }) => (
+        <Group key={`pto_${key}`} listening={false}>
+          <Line
+            points={[tileX, zeroY, tileX + tileW, zeroY]}
+            stroke="#ff2dcc" strokeWidth={0.5} opacity={0.3} dash={[3, 3]}
+          />
+          <Line
+            points={linePoints}
+            stroke="#ff2dcc"
+            strokeWidth={isSelected ? 2 : 1.5}
+            opacity={isSelected ? 0.95 : 0.7}
+            tension={0.4} lineCap="round"
+            shadowColor="#ff2dcc"
+            shadowBlur={isSelected ? 8 : 4}
+            shadowOpacity={isSelected ? 0.6 : 0.35}
+          />
+        </Group>
+      ))}
+
+      {/* ── Global overlays (on = piano-roll pitch axis) ── */}
+      {globalOverlays.map(({ key, linePoints, baseY, tileX, tileW, isSelected }) => (
+        <Group key={`gpo_${key}`} listening={false}>
+          {/* Base-pitch reference line (0¢ — where the tile is) */}
+          <Line
+            points={[tileX, baseY, tileX + tileW, baseY]}
+            stroke="#ff2dcc" strokeWidth={0.5} opacity={0.25} dash={[3, 3]}
+          />
+          {/* Curve following actual pitch on the roll */}
+          <Line
+            points={linePoints}
+            stroke="#ff2dcc"
+            strokeWidth={isSelected ? 2.5 : 2}
+            opacity={isSelected ? 1 : 0.8}
+            tension={0.4} lineCap="round" lineJoin="round"
+            shadowColor="#ff2dcc"
+            shadowBlur={isSelected ? 12 : 6}
+            shadowOpacity={isSelected ? 0.7 : 0.45}
+          />
+        </Group>
+      ))}
+
       {/* F0 contour lines */}
       {contours.map(({ nodeId, points }) => (
         points.length >= 4 && (

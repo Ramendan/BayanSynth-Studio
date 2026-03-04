@@ -80,7 +80,11 @@ class TransportController {
     const contextNow = engine.ctx.currentTime;
 
     for (const track of activeTracks) {
-      for (const node of track.nodes) {
+      // Sort by start time so prevNode tracking is correct for transitions
+      const sortedNodes = [...track.nodes].sort((a, b) => a.start_time - b.start_time);
+      let lastScheduledNode = null;
+
+      for (const node of sortedNodes) {
         if (!node.audioUrl) continue;
 
         const nodeEnd = node.start_time + (node.duration || 0);
@@ -95,7 +99,7 @@ class TransportController {
 
         try {
           const source = await engine.scheduleNode(
-            node, contextWhen, track.volume, track.pan || 0, intraNodeOffset
+            node, contextWhen, track.volume, track.pan || 0, intraNodeOffset, lastScheduledNode
           );
           if (source) {
             this._scheduledSources.push(source);
@@ -103,6 +107,8 @@ class TransportController {
         } catch (err) {
           console.warn(`[Transport] Failed to schedule ${node.id}:`, err.message);
         }
+
+        lastScheduledNode = node;
       }
     }
 

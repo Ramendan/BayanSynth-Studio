@@ -1,7 +1,30 @@
+# BayanSynth Studio — complete Python dependency list
+# Covers both the FastAPI server and the BayanSynthTTS engine.
+# Install: pip install -r requirements.txt
+
+# ── API server ──────────────────────────────────────────────────────────────
 fastapi>=0.100
 uvicorn>=0.30
+python-multipart>=0.0.9
+
+# ── Audio I/O & processing ───────────────────────────────────────────────────
 numpy>=1.26
-torchcrepe>=0.0.23
 librosa>=0.10.0
 soundfile>=0.12.1
-python-multipart>=0.0.9
+
+# ── Pitch detection (optional but used by /api/pitch_detect) ─────────────────
+torchcrepe>=0.0.23
+
+# ── BayanSynthTTS engine dependencies ────────────────────────────────────────
+torch>=2.0
+torchaudio>=2.0
+PyYAML>=6.0
+peft>=0.7                  # LoRA injection
+transformers>=4.40
+huggingface_hub<1.0        # ⚠  pinned — do NOT upgrade to >=1.0
+omegaconf>=2.3
+hyperpyyaml
+
+# ── Arabic diacritization ─────────────────────────────────────────────────────
+mishkal                    # Rule-based tashkeel (zero GPU overhead)
+# tashkeel                 # Neural upgrade (optional, GPU recommended)

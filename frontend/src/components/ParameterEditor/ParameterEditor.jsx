@@ -7,7 +7,10 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
-import { parameterDrawerOpenAtom } from '../../store/atoms';
+import { parameterDrawerOpenAtom, playheadAtom } from '../../store/atoms';
+import { HEADER_WIDTH, PIANO_KEY_WIDTH } from '../../utils/constants';
+
+const LANE_OFFSET = HEADER_WIDTH + PIANO_KEY_WIDTH; // 220px — aligns lane content with piano roll grid
 
 import DynLane from './DynLane';
 import PitLane from './PitLane';
@@ -30,6 +33,7 @@ const MAX_HEIGHT = 350;
 export default function ParameterEditor({ zoom = 1, panX = 0 }) {
   const [isOpen, setIsOpen] = useAtom(parameterDrawerOpenAtom);
   const [activeTab, setActiveTab] = useState('dyn');
+  const playhead = useAtomValue(playheadAtom);
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
   const containerRef = useRef(null);
   const isResizing = useRef(false);
@@ -42,7 +46,7 @@ export default function ParameterEditor({ zoom = 1, panX = 0 }) {
     const el = containerRef.current;
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
-      setLaneWidth(entry.contentRect.width - 60); // minus tab bar
+      setLaneWidth(entry.contentRect.width - LANE_OFFSET); // align left edge with grid origin
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -116,8 +120,8 @@ export default function ParameterEditor({ zoom = 1, panX = 0 }) {
       {/* Lane content */}
       {isOpen && (
         <div className="param-content">
-          {activeTab === 'dyn' && <DynLane width={laneWidth} zoom={zoom} panX={panX} />}
-          {activeTab === 'pit' && <PitLane width={laneWidth} zoom={zoom} panX={panX} />}
+          {activeTab === 'dyn' && <DynLane width={laneWidth} zoom={zoom} panX={panX} offsetX={LANE_OFFSET} playhead={playhead} />}
+          {activeTab === 'pit' && <PitLane width={laneWidth} zoom={zoom} panX={panX} offsetX={LANE_OFFSET} playhead={playhead} />}
           {activeTab === 'vib' && <VibLane width={laneWidth} />}
           {activeTab === 'fx'  && <EffectsLane width={laneWidth} />}
           {activeTab === 'tr'  && <TransitionsLane width={laneWidth} />}
