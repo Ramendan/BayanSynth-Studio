@@ -15,7 +15,7 @@ Download the latest `.exe` from the [Releases](https://github.com/Ramendan/Bayan
 
 > **Note:** the exe relies on the Python environment created by `setup.bat`. Run the script once (see [Installation from source](#installation-from-source) below) before using the executable.
 
-On the first run it will download the AI models (~3.5 GB from Hugging Face). After that it opens straight to the editor every time.
+On the first run it will download the AI models (~9 GB total). After that it opens straight to the editor every time.
 
 ---
 
@@ -34,7 +34,7 @@ No subscription. No cloud. Everything runs on your machine.
 | **OS** | Windows 10 or 11 (64-bit) |
 | **Python** | 3.11 - [python.org/downloads](https://www.python.org/downloads/) (tick **"Add Python to PATH"**) |
 | **GPU** | NVIDIA GPU recommended (CPU works but synthesis takes ~30 s per note) |
-| **Disk** | ~5 GB free (AI models ~3.5 GB + Python environment ~1.5 GB) |
+| **Disk** | ~12 GB free (AI models ~9 GB + Python environment + Node modules ~3 GB) |
 
 ---
 
@@ -50,16 +50,25 @@ Only needed if you want to modify the code or build the app yourself.
 
 ### Step 2 - Get the code
 
+Both repos are needed — `BayanSynth-Studio` is the app and `BayanSynthTTS` supplies the AI engine code that gets bundled during setup:
+
 ```bat
 git clone https://github.com/Ramendan/BayanSynth-Studio.git
+git clone https://github.com/Ramendan/BayanSynthTTS.git
 cd BayanSynth-Studio
 ```
+
+The two folders must sit **side by side** (same parent folder).
 
 ### Step 3 - Run setup
 
 Double-click **`setup.bat`** (or type it in the terminal).
 
-This creates a Python virtual environment and installs all dependencies. It does not download the AI models.
+This does the following in one go:
+1. Creates a Python virtual environment
+2. Installs all Python and Node.js dependencies
+3. Bundles the AI engine code from the sibling `BayanSynthTTS` folder into `backend\lib\`
+4. Downloads the AI model weights (~9 GB total, needs a good internet connection)
 
 Running `setup.bat` again is safe and skips anything already installed.
 
@@ -67,31 +76,27 @@ Running `setup.bat` again is safe and skips anything already installed.
 
 Double-click **`start_studio.bat`**.
 
-On the first run the studio shows a download screen. Click the button to pull the models from Hugging Face (~3.5 GB total).
-
-| What gets downloaded | Size |
-|----------------------|------|
-| CosyVoice3 base model | ~2.8 GB |
-| BayanSynth Arabic LoRA | ~1.5 GB |
-
-Two progress bars track the download. When both hit 100% the models load and the studio opens. This only happens once.
+Since `setup.bat` already downloaded the models, the studio opens straight to the editor. If for any reason the models are missing (e.g. you used `--skip-download`), a download screen will appear — click the button and it will fetch them automatically.
 
 ---
 
 ## Where are the models stored?
 
-Inside the **BayanSynthTTS** folder next to the repo:
+Inside the studio folder itself, under `backend\lib\`:
 
 ```
-BayanSynthTTS\
-  pretrained_models\
-    CosyVoice3\          <- base model (~2.8 GB)
-  checkpoints\
-    llm\
-      epoch_28_whole.pt  <- Arabic LoRA (~1.5 GB)
+BayanSynth-Studio\
+  backend\
+    lib\
+      BayanSynthTTS\
+        pretrained_models\
+          CosyVoice3\        <- base model (~7 GB)
+        checkpoints\
+          llm\
+            epoch_28_whole.pt  <- Arabic LoRA (~1.9 GB)
 ```
 
-The download screen shows the exact paths before you start. To re-download (e.g. after moving the folder), delete those paths and relaunch.
+To re-download (e.g. after moving the folder), delete those paths and run `python backend\download_models.py`.
 
 ### Daily use
 
