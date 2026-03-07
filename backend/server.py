@@ -835,6 +835,20 @@ async def rename_voice(req: VoiceRenameRequest):
     return {"old": req.old_name, "new": req.new_name}
 
 
+@app.post("/api/voices/folder")
+async def open_voices_folder():
+    """Open the voices directory in the system file manager (Windows Explorer).
+
+    This is a fallback for non-Electron (browser) mode.  In Electron the
+    renderer calls shell.openPath via IPC instead.
+    """
+    os.makedirs(VOICES_DIR, exist_ok=True)
+    if sys.platform == "win32":
+        import subprocess
+        subprocess.Popen(["explorer", os.path.normpath(VOICES_DIR)])
+    return {"path": VOICES_DIR}
+
+
 @app.post("/api/pitch_process")
 async def pitch_process(file: UploadFile = File(...), semitones: float = 0.0):
     """Server-side pitch shift using librosa (formant-preserving).

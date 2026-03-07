@@ -233,6 +233,17 @@ export async function deleteVoice(name) {
   return res.json();
 }
 
+export async function openVoicesFolder() {
+  // Electron path (preferred — opens via shell.openPath)
+  if (window.electronAPI?.openVoicesFolder) {
+    return window.electronAPI.openVoicesFolder();
+  }
+  // Browser fallback — ask the backend to open Explorer
+  const res = await fetch(`${API_BASE}/voices/folder`, { method: 'POST' });
+  if (!res.ok) throw new Error('Could not open voices folder');
+  return res.json();
+}
+
 export async function renameVoice(oldName, newName) {
   const res = await fetch(`${API_BASE}/voices/rename`, {
     method: 'POST',

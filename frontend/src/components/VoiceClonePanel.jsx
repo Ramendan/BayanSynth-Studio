@@ -14,7 +14,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAtom, useSetAtom, useAtomValue } from 'jotai';
 import {
-  Mic, Square, Play, Upload, Save, X, Volume2, Trash2, Check,
+  Mic, Square, Play, Upload, Save, X, Volume2, Trash2, Check, FolderOpen,
 } from 'lucide-react';
 import {
   voicesAtom,
@@ -22,7 +22,7 @@ import {
   selectedNodeAtom,
   updateNodeAtom,
 } from '../store/atoms';
-import { uploadVoice, listVoices, deleteVoice, synthesize as synthesizeApi } from '../api';
+import { uploadVoice, listVoices, deleteVoice, openVoicesFolder, synthesize as synthesizeApi } from '../api';
 
 // Voice clone panel open state (module-level for simplicity)
 import { atom } from 'jotai';
@@ -423,7 +423,16 @@ export default function VoiceClonePanel() {
           {/* Voice Library */}
           {voices.length > 0 && (
             <section className="settings-section">
-              <h3>Voice Library ({voices.length})</h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3>Voice Library ({voices.length})</h3>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => openVoicesFolder().catch(() => setStatus('Could not open voices folder'))}
+                  title="Open voices folder in Explorer"
+                >
+                  <FolderOpen size={14} strokeWidth={1.5} /> Open Folder
+                </button>
+              </div>
               <p className="settings-hint" style={{ marginBottom: 8 }}>
                 Saved voices — click <strong>Apply</strong> to assign to the selected node.
               </p>

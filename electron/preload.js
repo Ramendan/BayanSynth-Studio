@@ -18,4 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // App info
   getAppPath: () => ipcRenderer.invoke('get-app-path'),
+
+  // Voice folder
+  openVoicesFolder: () => ipcRenderer.invoke('open-voices-folder'),
 });
