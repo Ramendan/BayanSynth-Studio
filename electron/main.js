@@ -1,5 +1,5 @@
 // BayanSynth Studio — Electron main process
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -245,6 +245,15 @@ ipcMain.handle('read-file', async (event, filePath) => {
 // Get app path
 ipcMain.handle('get-app-path', async () => {
   return app.getPath('userData');
+});
+
+// Open the voices folder in the system file manager
+ipcMain.handle('open-voices-folder', async () => {
+  const studioRoot = path.join(__dirname, '..');
+  const voicesDir = path.join(studioRoot, 'voices');
+  if (!fs.existsSync(voicesDir)) fs.mkdirSync(voicesDir, { recursive: true });
+  await shell.openPath(voicesDir);
+  return { opened: true, path: voicesDir };
 });
 
 // ── App Lifecycle ───────────────────────────────────────────────────

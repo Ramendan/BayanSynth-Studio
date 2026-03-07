@@ -112,6 +112,8 @@ Double-click **`start_studio.bat`** every time. The model download only runs the
 | Type text into a note | Double-click the note |
 | Change the voice | Click the voice dropdown on the left of each track |
 | Clone your own voice | Click the microphone icon in the toolbar, record ~10 seconds, save |
+| Open voices folder | In the Voice Cloning panel, click **Open Folder** to reveal the `voices/` directory |
+| Delete a voice | In the Voice Cloning panel, click the trash icon next to any voice |
 | Play back | Press **Space** |
 | Export to WAV | **File > Export WAV** or the export icon in the toolbar |
 | Save project | **Ctrl+S** |
@@ -148,6 +150,36 @@ Open **Settings** (gear icon):
 | **Theme** | Dark (default) or Light. |
 | **Export prefix** | String prepended to exported WAV filenames. |
 | **Voice Library folder** | Extra folder for `.wav`/`.mp3` voice reference files. |
+
+---
+
+## Voice cloning
+
+BayanSynth Studio supports zero-shot voice cloning: record a few seconds of any speaker and the AI will synthesize Arabic speech in that voice.
+
+### How it works
+
+1. Click the **microphone** icon in the toolbar to open the Voice Cloning panel.
+2. **Record** 5-15 seconds of clear speech (any language), or **Upload** an existing audio file.
+3. **Preview** the recording to make sure it sounds clean.
+4. Enter a name and click **Save Voice** to add it to the library.
+5. Optionally click **Test Synthesize** to hear a sample in the new voice.
+6. Click **Apply** to assign the voice to the selected note on the timeline.
+
+All voices are stored as 24 kHz mono WAV files in the `voices/` folder inside the project. Click the **Open Folder** button in the Voice Library to reveal this directory in Windows Explorer. You can also drop `.wav` files directly into this folder — they will appear in the voice list after a refresh.
+
+### Managing voices
+
+| Action | How |
+|--------|-----|
+| Record a new voice | Voice Cloning panel > **Start Recording** |
+| Upload an audio file | Voice Cloning panel > **Upload File**, or the upload button in the Properties panel |
+| Preview a voice | Click the play icon next to any voice in the library |
+| Delete a voice | Click the trash icon next to any voice in the library |
+| Open voices folder | Click **Open Folder** in the Voice Library header |
+| Apply to a note | Select a note, then click **Apply** next to the voice |
+
+> **Tip:** The model extracts speaker characteristics from the reference audio, not the words. You can record in English, French, or any language and it will still synthesize in Arabic. Cleaner recordings produce better clones.
 
 ---
 
