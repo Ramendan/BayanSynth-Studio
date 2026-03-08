@@ -44,6 +44,7 @@ export default function VoiceClonePanel() {
   const [audioUrl, setAudioUrl] = useState(null);
   const [voiceName, setVoiceName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
   const [testing, setTesting] = useState(false);
   const [testText, setTestText] = useState('مَرْحَباً بِكُمْ فِي اخْتِبَارِ الصَّوْتِ');
   const [savedVoicePath, setSavedVoicePath] = useState(null);
@@ -181,6 +182,7 @@ export default function VoiceClonePanel() {
   const handleSave = useCallback(async () => {
     if (!audioBlob) return;
     setSaving(true);
+    setSaveError(null);
     setStatus('Saving voice to library...');
     try {
       const name = voiceName.trim() || `voice_${Date.now()}`;
@@ -198,7 +200,9 @@ export default function VoiceClonePanel() {
 
       setStatus(`Voice saved: ${res.filename}`);
     } catch (err) {
-      setStatus(`Save failed: ${err.message}`);
+      const msg = err.message || 'Unknown error';
+      setSaveError(msg);
+      setStatus(`Save failed: ${msg}`);
     } finally {
       setSaving(false);
     }
@@ -382,6 +386,15 @@ export default function VoiceClonePanel() {
               {savedVoicePath && (
                 <div className="voice-saved-badge">
                   <Check size={14} strokeWidth={2} /> Saved as: {savedVoicePath}
+                </div>
+              )}
+              {saveError && (
+                <div className="voice-error-badge" style={{
+                  color: '#ff6b6b', background: 'rgba(255,107,107,0.1)',
+                  border: '1px solid rgba(255,107,107,0.3)', borderRadius: 6,
+                  padding: '8px 12px', marginTop: 8, fontSize: 13,
+                }}>
+                  Save failed: {saveError}
                 </div>
               )}
             </section>

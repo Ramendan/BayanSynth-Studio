@@ -22,6 +22,7 @@ import io
 import json as _json_mod
 import os
 import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -171,7 +172,7 @@ class ArabicJSONResponse(JSONResponse):
         ).encode("utf-8")
 
 
-app = FastAPI(title="BayanSynth Studio API", version="0.1.0")
+app = FastAPI(title="BayanSynth Studio API", version="0.1.1")
 
 # Allow both the Vite dev server and the packaged Electron app (file:// origin)
 app.add_middleware(
@@ -423,12 +424,15 @@ def _resolve_voice_path(tts, voice: str | None) -> str | None:
 
 @app.get("/api/status")
 async def status():
+    storage = _get_model_storage_root()
     return {
         "status": "ok",
         "model_loaded": _TTS is not None,
         "models_ready": _models_ready,
         "model_loading": _model_loading,
-        "version": "0.1.0",
+        "model_dir": str(storage),
+        "voices_dir": VOICES_DIR,
+        "version": "0.1.1",
     }
 
 
@@ -799,7 +803,8 @@ async def upload_voice(file: UploadFile = File(...)):
     content = await file.read()
 
     # Decode audio — try soundfile first (native WAV/FLAC/OGG-Vorbis), then fall
-    # back to librosa which uses audioread/ffmpeg for WebM, Opus, MP3, etc.
+    # back to librosa via a temp file (audioread/ffmpeg need a real file path to
+    # decode WebM, Opus, MP3, etc. — BytesIO doesn't work for those formats).
     audio = None
     sr = None
     try:
@@ -807,8 +812,14 @@ async def upload_voice(file: UploadFile = File(...)):
         if len(audio.shape) > 1:
             audio = librosa.to_mono(audio.T)
     except Exception:
+        # Determine a suffix from the MIME type so ffmpeg can identify the format
+        ct = (file.content_type or "").lower()
+        ext = ".webm" if "webm" in ct else ".ogg" if "ogg" in ct else ".mp3" if "mp3" in ct else ".wav"
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix=ext)
         try:
-            audio, sr = librosa.load(io.BytesIO(content), sr=None, mono=True)
+            os.write(tmp_fd, content)
+            os.close(tmp_fd)
+            audio, sr = librosa.load(tmp_path, sr=None, mono=True)
         except Exception as e2:
             raise HTTPException(
                 status_code=400,
@@ -818,6 +829,11 @@ async def upload_voice(file: UploadFile = File(...)):
                     f"(Details: {e2})"
                 ),
             )
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
     # Resample to 24 kHz and normalise
     if sr != 24000:
