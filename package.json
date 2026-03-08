@@ -39,7 +39,12 @@
       {
         "from": "backend/lib",
         "to": "backend/lib",
-        "filter": ["BayanSynthTTS/bayansynthtts/**/*", "BayanSynthTTS/voices/**/*"]
+        "filter": [
+          "BayanSynthTTS/bayansynthtts/**/*",
+          "BayanSynthTTS/voices/**/*",
+          "cosyvoice/**/*",
+          "matcha/**/*"
+        ]
       },
       {
         "from": "backend/python_embed",

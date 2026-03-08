@@ -83,7 +83,7 @@ export default function SetupScreen({ onSetupComplete, modelDir, loraPath }) {
         {/* Logo */}
         <div className="setup-screen__logo">BayanSynth Studio</div>
         <div className="setup-screen__subtitle">
-          وقت التثبيت &mdash; First-time Setup
+          وقت التثبيت &nbsp; First-time Setup
         </div>
 
         {/* Idle state */}
@@ -95,8 +95,8 @@ export default function SetupScreen({ onSetupComplete, modelDir, loraPath }) {
               You only need to do this once.
             </p>
             <ul className="setup-screen__model-list">
-              <li>CosyVoice3 base model — <span className="setup-dim">~2.8 GB</span></li>
-              <li>BayanSynth LoRA checkpoint — <span className="setup-dim">~1.5 GB</span></li>
+              <li>CosyVoice3 base model <span className="setup-dim">(~2.8 GB)</span></li>
+              <li>BayanSynth LoRA checkpoint <span className="setup-dim">(~1.5 GB)</span></li>
             </ul>
 
             {/* Show where files will land */}
@@ -167,7 +167,7 @@ export default function SetupScreen({ onSetupComplete, modelDir, loraPath }) {
         {phase === 'done' && (
           <div className="setup-done">
             <span className="setup-done__icon">✓</span>
-            <span>Models downloaded &amp; loaded — opening studio…</span>
+            <span>Models downloaded and loaded. Opening studio...</span>
           </div>
         )}
 
