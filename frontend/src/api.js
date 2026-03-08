@@ -55,25 +55,37 @@ export async function getSetupStatus() {
  * @returns {() => void}  cleanup function — call to close the SSE stream
  */
 export function streamModelDownload(onProgress, onDone, onError) {
-  const es = new EventSource(`${API_BASE}/setup/download`);
+  let retries = 0;
+  const MAX_RETRIES = 3;
+  let es;
 
-  es.onmessage = (evt) => {
-    try {
-      const d = JSON.parse(evt.data);
-      if (d.type === 'done')        { es.close(); onDone(); }
-      else if (d.type === 'error')  { es.close(); onError(d.message || 'Unknown error'); }
-      else                          { onProgress(d); }
-    } catch {
-      // malformed event — ignore
-    }
-  };
+  function connect() {
+    es = new EventSource(`${API_BASE}/setup/download`);
 
-  es.onerror = () => {
-    es.close();
-    onError('Connection to backend lost. Is the server running?');
-  };
+    es.onmessage = (evt) => {
+      try {
+        const d = JSON.parse(evt.data);
+        if (d.type === 'done')        { es.close(); onDone(); }
+        else if (d.type === 'error')  { es.close(); onError(d.message || 'Unknown error'); }
+        else                          { retries = 0; onProgress(d); }
+      } catch {
+        // malformed event — ignore
+      }
+    };
 
-  return () => es.close();
+    es.onerror = () => {
+      es.close();
+      if (retries < MAX_RETRIES) {
+        retries++;
+        setTimeout(connect, 2000);
+      } else {
+        onError('Connection to backend lost. Is the server running?');
+      }
+    };
+  }
+
+  connect();
+  return () => { if (es) es.close(); };
 }
 
 /**

@@ -213,18 +213,36 @@ async def _seed_default_voices():
 
 @app.on_event("startup")
 async def _try_load_models_on_startup():
-    """If models are already present, load them in a background thread."""
+    """If models are already present, load them in a TRUE background thread.
+
+    CRITICAL: We must NOT await the model load — doing so blocks the entire
+    uvicorn startup for ~40 s, causing the Electron frontend to time out and
+    show "Download failed / Connection to backend lost" errors.  Instead we
+    fire-and-forget a daemon thread; the server starts accepting requests
+    immediately and the /api/status endpoint reports models_ready once done.
+    """
     if _bayan_has_models():
         print("[Studio] Models found — loading in background…")
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, _get_tts)
-        print("[Studio] Models ready.")
+
+        def _bg_load():
+            global _model_loading
+            _model_loading = True
+            try:
+                _get_tts()
+                print("[Studio] Models ready.")
+            except Exception as exc:
+                print(f"[Studio] Background model load failed: {exc}")
+            finally:
+                _model_loading = False
+
+        threading.Thread(target=_bg_load, daemon=True).start()
     else:
         print("[Studio] Models not found — first-run setup required.")
 
 # ── Model state ─────────────────────────────────────────────────────
 _TTS = None
 _models_ready: bool = False          # True once BayanSynthTTS() loaded OK
+_model_loading: bool = False         # True while models are being loaded
 _download_thread: threading.Thread | None = None  # background download
 _dl_progress: dict = {
     "stage": "idle",      # idle | base | lora | loading | done | error
@@ -409,6 +427,7 @@ async def status():
         "status": "ok",
         "model_loaded": _TTS is not None,
         "models_ready": _models_ready,
+        "model_loading": _model_loading,
         "version": "0.1.0",
     }
 

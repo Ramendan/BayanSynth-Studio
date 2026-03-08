@@ -177,9 +177,19 @@ export default function SetupScreen({ onSetupComplete, modelDir, loraPath }) {
             <div className="setup-error__title">Download failed</div>
             <div className="setup-error__msg">{errorMsg}</div>
             <div className="setup-error__hint">
-              Check your internet connection. You can also manually place the
-              models in <code>BayanSynthTTS/pretrained_models/CosyVoice3/</code> and
-              restart the app.
+              <p>Check your internet connection and try again.</p>
+              <p style={{ marginTop: '8px' }}>
+                You can also download the models manually:
+              </p>
+              <ol style={{ textAlign: 'left', margin: '8px 0', paddingLeft: '20px', fontSize: '12px' }}>
+                <li>Base model: <code>huggingface.co/FunAudioLLM/Fun-CosyVoice3-0.5B-2512</code></li>
+                <li>LoRA checkpoint: <code>huggingface.co/Ramendan/BayanSynthTTS-checkpoints</code></li>
+              </ol>
+              {resolvedDir && (
+                <p style={{ fontSize: '12px' }}>
+                  Place the base model files in: <code>{resolvedDir}</code>
+                </p>
+              )}
             </div>
             <button className="setup-btn setup-btn--retry" onClick={retry}>
               Try Again

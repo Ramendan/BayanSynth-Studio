@@ -111,15 +111,15 @@ export default function App() {
     const startup = async () => {
       try {
         setLoadingMsg('Connecting to backend...');
-        // Check backend health with retries
+        // Check backend health with retries (generous timeout for slow machines)
         let attempts = 0;
-        while (attempts < 10) {
+        while (attempts < 20) {
           try {
             const st = await checkStatus();
             if (st && st.status === 'ok') break;
           } catch { /* retry */ }
           attempts++;
-          setLoadingMsg(`Waiting for backend... (${attempts}/10)`);
+          setLoadingMsg(`Waiting for backend... (${attempts}/20)`);
           await new Promise(r => setTimeout(r, 1500));
         }
 
@@ -135,6 +135,19 @@ export default function App() {
           return; // hand off to <SetupScreen>
         }
         if (mounted) setSetupReady(true);
+
+        // Wait for models to finish loading (background load after server start)
+        setLoadingMsg('Loading AI models...');
+        let modelAttempts = 0;
+        while (modelAttempts < 120) {
+          try {
+            const st = await checkStatus();
+            if (st && st.models_ready) break;
+          } catch { /* retry */ }
+          modelAttempts++;
+          setLoadingMsg(`Loading AI models... (${modelAttempts}s)`);
+          await new Promise(r => setTimeout(r, 1000));
+        }
 
         setLoadingMsg('Loading voices...');
         const voices = await listVoices(settings.customVoicesDir || null).catch(() => []);
