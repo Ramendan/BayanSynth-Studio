@@ -8,14 +8,23 @@ Built on Electron, React 18, FastAPI, CosyVoice 3, and the BayanSynthTTS Arabic 
 
 ## Quickstart
 
-Download the latest `.exe` from the [Releases](https://github.com/Ramendan/BayanSynth-Studio/releases) page.
+Download the latest release from the [Releases](https://github.com/Ramendan/BayanSynth-Studio/releases) page.
 
-- `BayanSynth Studio Setup 0.1.0-alpha.exe` - installs to your start menu
-- `BayanSynth Studio 0.1.0-alpha.exe` - portable, just double-click
+### Option A — Full package (recommended)
 
-> **Note:** the exe relies on the Python environment created by `setup.bat`. Run the script once (see [Installation from source](#installation-from-source) below) before using the executable.
+Download **`BayanSynth-Studio-0.1.1-alpha-win-x64.7z`** (~1.5 GB).
 
-On the first run it will download the AI models (~9 GB total). After that it opens straight to the editor every time.
+This bundles **everything**: Electron app, embedded Python 3.11, PyTorch (CUDA 12.1), and all dependencies. No Python installation required.
+
+1. Extract the `.7z` archive with [7-Zip](https://7-zip.org) to a folder (e.g. `C:\BayanSynth Studio\`)
+2. Run **`BayanSynth Studio.exe`**
+3. On first launch, the setup screen will download the AI models (~9 GB). After that it opens straight to the editor every time.
+
+### Option B — Lightweight exe (for developers)
+
+Download **`BayanSynth Studio 0.1.1-alpha.exe`** (~68 MB).
+
+This is just the Electron shell. It requires a Python 3.11 environment set up separately — see [Installation from source](#installation-from-source) below.
 
 ---
 
@@ -50,15 +59,15 @@ Only needed if you want to modify the code or build the app yourself.
 
 ### Step 2 - Get the code
 
-Both repos are needed — `BayanSynth-Studio` is the app and `BayanSynthTTS` supplies the AI engine code that gets bundled during setup:
+Both repos are needed — `BayanSynth-Studio` is the app and `CosyVoice-Arabic` supplies the AI engine code that gets bundled during setup:
 
 ```bat
 git clone https://github.com/Ramendan/BayanSynth-Studio.git
-git clone https://github.com/Ramendan/BayanSynthTTS.git
+git clone https://github.com/Ramendan/CosyVoice-Arabic.git
 cd BayanSynth-Studio
 ```
 
-The two folders must sit **side by side** (same parent folder).
+The two folders must sit **side by side** (same parent folder). The `CosyVoice-Arabic` repo contains `cosyvoice/`, `matcha/`, and `BayanSynthTTS/` which are needed by the engine.
 
 ### Step 3 - Run setup
 
@@ -82,21 +91,49 @@ Since `setup.bat` already downloaded the models, the studio opens straight to th
 
 ## Where are the models stored?
 
-Inside the studio folder itself, under `backend\lib\`:
+Model storage depends on how you're running the app:
+
+### Full package / packaged exe
+
+Models are stored in your Windows AppData folder:
 
 ```
-BayanSynth-Studio\
-  backend\
-    lib\
-      BayanSynthTTS\
-        pretrained_models\
-          CosyVoice3\        <- base model (~7 GB)
-        checkpoints\
-          llm\
-            epoch_28_whole.pt  <- Arabic LoRA (~1.9 GB)
+%APPDATA%\BayanSynth Studio\
+  pretrained_models\
+    CosyVoice3\               <- base model (~7 GB)
+  checkpoints\
+    llm\
+      epoch_28_whole.pt        <- Arabic LoRA (~1.9 GB)
 ```
 
-To re-download (e.g. after moving the folder), delete those paths and run `python backend\download_models.py`.
+Open this folder by typing `%APPDATA%\BayanSynth Studio` in the Windows Explorer address bar.
+
+### Dev mode (running from source)
+
+Models are stored inside the BayanSynthTTS repo that the server auto-discovers:
+
+```
+BayanSynthTTS\
+  pretrained_models\
+    CosyVoice3\               <- base model (~7 GB)
+  checkpoints\
+    llm\
+      epoch_28_whole.pt        <- Arabic LoRA (~1.9 GB)
+```
+
+To re-download models, delete those folders and re-launch the studio — the setup screen will appear automatically.
+
+---
+
+## Where are voices stored?
+
+Saved voices (from voice cloning) go into the `voices/` folder inside the studio project:
+
+```
+BayanSynth-Studio\voices\     <- your saved voices (24 kHz WAV)
+```
+
+The app also loads built-in reference voices from the BayanSynthTTS library (`default.wav`, `muffled-talking.wav`). These appear in the voice list automatically.
 
 ### Daily use
 
@@ -187,16 +224,37 @@ All voices are stored as 24 kHz mono WAV files in the `voices/` folder inside th
 
 From the repo root:
 
+### Lightweight build (no bundled Python)
+
 ```bat
 npm run build
 ```
+
+Produces a portable exe (~68 MB) that needs a separate Python environment.
+
+### Full build (bundled Python — standalone)
+
+```bat
+bundle_python.bat          &:: downloads Python 3.11 embeddable + all deps (~5 GB)
+bundle_deps.bat            &:: copies cosyvoice, matcha, bayansynthtts into backend\lib\
+npm run build:frontend     &:: builds the React frontend
+npx electron-builder --win --dir   &:: builds the unpacked Electron app
+```
+
+Then compress `dist\win-unpacked\` with 7-Zip:
+
+```bat
+"C:\Program Files\7-Zip\7z.exe" a -t7z -mx=5 dist\BayanSynth-Studio.7z dist\win-unpacked\*
+```
+
+> **Tip:** Use `bundle_python.bat --cpu` for a smaller build without CUDA (~1.5 GB smaller) — synthesis will be slower.
 
 Outputs to `dist/`:
 
 | File | What it is |
 |------|------------|
-| `BayanSynth Studio Setup 0.1.0-alpha.exe` | Standard Windows installer |
-| `BayanSynth Studio 0.1.0-alpha.exe` | Portable, no install needed |
+| `BayanSynth-Studio-*.7z` | Full package with bundled Python (CUDA) |
+| `BayanSynth Studio *.exe` | Portable exe (lightweight, no Python) |
 
 ---
 
@@ -219,10 +277,15 @@ Outputs to `dist/`:
 
 ### 1. Clone
 
+Both repos are needed — the Studio app and the CosyVoice-Arabic repo that supplies the AI engine code:
+
 ```bat
 git clone https://github.com/Ramendan/BayanSynth-Studio.git
+git clone https://github.com/Ramendan/CosyVoice-Arabic.git
 cd BayanSynth-Studio
 ```
+
+The two folders must sit **side by side** (same parent folder).
 
 ### 2. Python environment
 
@@ -264,14 +327,18 @@ Outputs an installer and portable `.exe` to `dist/`.
 
 ```
 BayanSynth-Studio/
-├── setup.bat              <- First-time setup
+├── setup.bat              <- First-time setup (Python venv + Node + models)
 ├── start_studio.bat       <- Daily launcher
+├── bundle_python.bat      <- Bundle embedded Python for standalone distribution
+├── bundle_deps.bat        <- Bundle cosyvoice/matcha/bayansynthtts into backend/lib/
 ├── package.json           <- Electron + electron-builder config
 │
 ├── backend/
 │   ├── server.py          <- FastAPI on port 8910
+│   ├── download_models.py <- Model downloader (base + LoRA)
 │   ├── requirements.txt
-│   └── lib/               <- Populated by setup.bat (gitignored)
+│   ├── lib/               <- Populated by bundle_deps.bat (gitignored)
+│   └── python_embed/      <- Populated by bundle_python.bat (gitignored)
 │
 ├── frontend/              <- React 18 + Vite (port 5177 in dev)
 │   └── src/
@@ -280,8 +347,10 @@ BayanSynth-Studio/
 │       ├── components/
 │       └── styles.css
 │
-└── electron/
-    └── main.js            <- Electron shell; spawns backend
+├── electron/
+│   └── main.js            <- Electron shell; spawns backend
+│
+└── voices/                <- Saved voices (24 kHz WAV files)
 ```
 
 ---

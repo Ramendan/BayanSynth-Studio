@@ -106,10 +106,13 @@ function startBackend() {
     pythonPath = fs.existsSync(localVenv) ? localVenv : repoVenv;
   } else {
     // Packaged app: try several locations for a working Python.
+    const embedPy   = path.join(process.resourcesPath, 'backend', 'python_embed', 'python.exe');
     const bundled   = path.join(process.resourcesPath, 'backend', 'python.exe');
     const venvPy    = path.join(process.resourcesPath, 'backend', '.venv', 'Scripts', 'python.exe');
 
-    if (fs.existsSync(bundled)) {
+    if (fs.existsSync(embedPy)) {
+      pythonPath = embedPy;
+    } else if (fs.existsSync(bundled)) {
       pythonPath = bundled;
     } else if (fs.existsSync(venvPy)) {
       pythonPath = venvPy;

@@ -40,6 +40,11 @@
         "from": "backend/lib",
         "to": "backend/lib",
         "filter": ["BayanSynthTTS/bayansynthtts/**/*", "BayanSynthTTS/voices/**/*"]
+      },
+      {
+        "from": "backend/python_embed",
+        "to": "backend/python_embed",
+        "filter": ["**/*"]
       }
     ],
     "win": {
