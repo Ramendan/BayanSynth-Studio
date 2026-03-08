@@ -10,7 +10,7 @@ Built on Electron, React 18, FastAPI, CosyVoice 3, and the BayanSynthTTS Arabic 
 
 Download the latest release from the [Releases](https://github.com/Ramendan/BayanSynth-Studio/releases) page.
 
-### Option A — Full package (recommended)
+### Option A: Full package (recommended)
 
 Download **`BayanSynth-Studio-0.1.1-alpha-win-x64.7z`** (~1.5 GB).
 
@@ -20,11 +20,11 @@ This bundles **everything**: Electron app, embedded Python 3.11, PyTorch (CUDA 1
 2. Run **`BayanSynth Studio.exe`**
 3. On first launch, the setup screen will download the AI models (~9 GB). After that it opens straight to the editor every time.
 
-### Option B — Lightweight exe (for developers)
+### Option B: Lightweight exe (for developers)
 
 Download **`BayanSynth Studio 0.1.1-alpha.exe`** (~68 MB).
 
-This is just the Electron shell. It requires a Python 3.11 environment set up separately — see [Installation from source](#installation-from-source) below.
+This is just the Electron shell. It requires a Python 3.11 environment set up separately. See [Installation from source](#installation-from-source) below.
 
 ---
 
@@ -59,7 +59,7 @@ Only needed if you want to modify the code or build the app yourself.
 
 ### Step 2 - Get the code
 
-Both repos are needed — `BayanSynth-Studio` is the app and `CosyVoice-Arabic` supplies the AI engine code that gets bundled during setup:
+Both repos are needed: `BayanSynth-Studio` is the app and `CosyVoice-Arabic` supplies the AI engine code that gets bundled during setup:
 
 ```bat
 git clone https://github.com/Ramendan/BayanSynth-Studio.git
@@ -85,7 +85,7 @@ Running `setup.bat` again is safe and skips anything already installed.
 
 Double-click **`start_studio.bat`**.
 
-Since `setup.bat` already downloaded the models, the studio opens straight to the editor. If for any reason the models are missing (e.g. you used `--skip-download`), a download screen will appear — click the button and it will fetch them automatically.
+Since `setup.bat` already downloaded the models, the studio opens straight to the editor. If the models are missing (e.g. you used `--skip-download`), a download screen will appear. Click the button and it will fetch them automatically.
 
 ---
 
@@ -121,7 +121,7 @@ BayanSynthTTS\
       epoch_28_whole.pt        <- Arabic LoRA (~1.9 GB)
 ```
 
-To re-download models, delete those folders and re-launch the studio — the setup screen will appear automatically.
+To re-download models, delete those folders and re-launch the studio. The setup screen will appear automatically.
 
 ---
 
@@ -203,7 +203,7 @@ BayanSynth Studio supports zero-shot voice cloning: record a few seconds of any 
 5. Optionally click **Test Synthesize** to hear a sample in the new voice.
 6. Click **Apply** to assign the voice to the selected note on the timeline.
 
-All voices are stored as 24 kHz mono WAV files in the `voices/` folder inside the project. Click the **Open Folder** button in the Voice Library to reveal this directory in Windows Explorer. You can also drop `.wav` files directly into this folder — they will appear in the voice list after a refresh.
+All voices are stored as 24 kHz mono WAV files in the `voices/` folder inside the project. Click the **Open Folder** button in the Voice Library to reveal this directory in Windows Explorer. You can also drop `.wav` files directly into this folder and they will appear in the voice list after a refresh.
 
 ### Managing voices
 
@@ -232,7 +232,7 @@ npm run build
 
 Produces a portable exe (~68 MB) that needs a separate Python environment.
 
-### Full build (bundled Python — standalone)
+### Full build (bundled Python, standalone)
 
 ```bat
 bundle_python.bat          &:: downloads Python 3.11 embeddable + all deps (~5 GB)
@@ -247,7 +247,7 @@ Then compress `dist\win-unpacked\` with 7-Zip:
 "C:\Program Files\7-Zip\7z.exe" a -t7z -mx=5 dist\BayanSynth-Studio.7z dist\win-unpacked\*
 ```
 
-> **Tip:** Use `bundle_python.bat --cpu` for a smaller build without CUDA (~1.5 GB smaller) — synthesis will be slower.
+> **Tip:** Use `bundle_python.bat --cpu` for a smaller build without CUDA (~1.5 GB smaller). Synthesis will be slower.
 
 Outputs to `dist/`:
 
@@ -277,7 +277,7 @@ Outputs to `dist/`:
 
 ### 1. Clone
 
-Both repos are needed — the Studio app and the CosyVoice-Arabic repo that supplies the AI engine code:
+Both repos are needed: the Studio app and the CosyVoice-Arabic repo that supplies the AI engine code:
 
 ```bat
 git clone https://github.com/Ramendan/BayanSynth-Studio.git
