@@ -287,146 +287,203 @@ export default function PropertiesPanel() {
         </div>
       </div>
 
-      {/* ═══════════ GROUP 1: Generation Properties ═══════════ */}
-      <div className="panel-group panel-group-gen">
-        <div className="panel-group-title gen-title">
-          Generation Properties
-          <button className="btn-revert" onClick={handleRevertGen} title="Revert to defaults">
-            <RotateCcw size={11} strokeWidth={2} />
-          </button>
-          {needsRegen && (
-            <span className="regen-badge" title="Text/voice/speed/seed changed — re-generate needed">
-              <AlertTriangle size={12} strokeWidth={2} /> Re-gen needed
-            </span>
+      {/* ═══════════ GROUP 1: Generation / Import Properties ═══════════ */}
+      {selectedNode.nodeType === 'imported' ? (
+        <div className="panel-group panel-group-import">
+          <div className="panel-group-title import-title">
+            Imported Audio
+          </div>
+
+          {/* Waveform preview */}
+          {selectedNode.waveformData && selectedNode.waveformData.length > 0 && (
+            <div className="panel-section">
+              <label>Waveform</label>
+              <canvas
+                ref={(canvas) => {
+                  if (!canvas || !selectedNode.waveformData) return;
+                  const ctx = canvas.getContext('2d');
+                  const w = canvas.width;
+                  const h = canvas.height;
+                  const data = selectedNode.waveformData;
+                  ctx.clearRect(0, 0, w, h);
+                  const step = w / data.length;
+                  const mid = h / 2;
+                  const amp = h * 0.4;
+                  ctx.fillStyle = trackColor + '33';
+                  ctx.strokeStyle = trackColor + 'aa';
+                  ctx.lineWidth = 1;
+                  ctx.beginPath();
+                  ctx.moveTo(0, mid);
+                  for (let i = 0; i < data.length; i++) {
+                    ctx.lineTo(i * step, mid - data[i] * amp);
+                  }
+                  for (let i = data.length - 1; i >= 0; i--) {
+                    ctx.lineTo(i * step, mid + data[i] * amp);
+                  }
+                  ctx.closePath();
+                  ctx.fill();
+                  ctx.stroke();
+                }}
+                width={200}
+                height={48}
+                className="import-waveform-canvas"
+              />
+            </div>
           )}
-        </div>
 
-        {/* Generate button (Item 5) */}
-        <div className="panel-section">
-          <button
-            className={`btn-generate ${generating ? 'generating' : ''}`}
-            onClick={handleGenerate}
-            disabled={generating || !selectedNode.text}
-            title="Generate audio for this node"
-          >
-            <Zap size={14} strokeWidth={2} />
-            {generating ? 'Generating...' : 'Generate'}
-          </button>
-        </div>
+          {/* Filename */}
+          <div className="panel-section">
+            <label>File</label>
+            <div className="import-filename">{selectedNode.text || '(unnamed)'}</div>
+          </div>
 
-        {/* Arabic Text (Item 4, 19: RTL + lang="ar") */}
-        <div className="panel-section">
-          <label>Arabic Text</label>
-          <textarea
-            rows={3}
-            value={selectedNode.text}
-            onChange={(e) => update({ text: e.target.value })}
-            onBlur={() => pushHistory()}
-            placeholder="اكتب النص العربي هنا..."
-            dir="rtl"
-            lang="ar"
-            className="arabic-input"
-          />
-          <div className="section-actions">
-            <button className="btn-haraka" onClick={handleTashkeel} title="Apply diacritics (auto-tashkeel)">
-              Tashkeel
+          {/* Duration info */}
+          <div className="panel-section">
+            <label>Original Duration</label>
+            <div className="import-filename">{(selectedNode.originalDuration || selectedNode.duration || 0).toFixed(2)}s</div>
+          </div>
+        </div>
+      ) : (
+        <div className="panel-group panel-group-gen">
+          <div className="panel-group-title gen-title">
+            Generation Properties
+            <button className="btn-revert" onClick={handleRevertGen} title="Revert to defaults">
+              <RotateCcw size={11} strokeWidth={2} />
             </button>
-            {!hasDiacritics(selectedNode.text) && (
-              <span className="warning-badge">No diacritics</span>
+            {needsRegen && (
+              <span className="regen-badge" title="Text/voice/speed/seed changed — re-generate needed">
+                <AlertTriangle size={12} strokeWidth={2} /> Re-gen needed
+              </span>
             )}
           </div>
-        </div>
 
-        {/* Phoneme Display */}
-        {phonemes && (
+          {/* Generate button (Item 5) */}
           <div className="panel-section">
-            <label>Phonemes</label>
-            <div className="phoneme-display">{phonemes}</div>
-          </div>
-        )}
-
-        {/* Voice */}
-        <div className="panel-section">
-          <label>Voice</label>
-          <select
-            value={selectedNode.voice || ''}
-            onChange={(e) => update({ voice: e.target.value || null })}
-          >
-            <option value="">Default</option>
-            {voices.map(v => (
-              <option key={v} value={v}>
-                {v.split(/[\\/]/).pop()}
-              </option>
-            ))}
-          </select>
-          <div className="section-actions">
-            <label className="btn-sm upload-btn">
-              <Upload size={12} strokeWidth={1.5} /> Upload
-              <input type="file" accept="audio/*" hidden onChange={handleVoiceUpload} />
-            </label>
             <button
-              className={`btn-sm ${recording ? 'recording' : ''}`}
-              onClick={recording ? stopRecording : startRecording}
+              className={`btn-generate ${generating ? 'generating' : ''}`}
+              onClick={handleGenerate}
+              disabled={generating || !selectedNode.text}
+              title="Generate audio for this node"
             >
-              <Mic size={12} strokeWidth={1.5} /> {recording ? 'Stop' : 'Rec'}
+              <Zap size={14} strokeWidth={2} />
+              {generating ? 'Generating...' : 'Generate'}
             </button>
           </div>
-        </div>
 
-        {/* Seed */}
-        <div className="panel-section">
-          <label>Seed</label>
-          <div className="seed-row">
-            <input
-              type="number"
-              value={selectedNode.seed}
-              onChange={(e) => update({ seed: parseInt(e.target.value) || 0 })}
+          {/* Arabic Text (Item 4, 19: RTL + lang="ar") */}
+          <div className="panel-section">
+            <label>Arabic Text</label>
+            <textarea
+              rows={3}
+              value={selectedNode.text}
+              onChange={(e) => update({ text: e.target.value })}
+              onBlur={() => pushHistory()}
+              placeholder="اكتب النص العربي هنا..."
+              dir="rtl"
+              lang="ar"
+              className="arabic-input"
             />
-            <button className="btn-dice" onClick={randomizeSeed} title="Random seed">
-              <Dice5 size={16} strokeWidth={1.5} />
-            </button>
-            <button
-              className="btn-dice"
-              onClick={handleAudition}
-              disabled={auditioning}
-              title="Audition seed (quick preview)"
+            <div className="section-actions">
+              <button className="btn-haraka" onClick={handleTashkeel} title="Apply diacritics (auto-tashkeel)">
+                Tashkeel
+              </button>
+              {!hasDiacritics(selectedNode.text) && (
+                <span className="warning-badge">No diacritics</span>
+              )}
+            </div>
+          </div>
+
+          {/* Phoneme Display */}
+          {phonemes && (
+            <div className="panel-section">
+              <label>Phonemes</label>
+              <div className="phoneme-display">{phonemes}</div>
+            </div>
+          )}
+
+          {/* Voice */}
+          <div className="panel-section">
+            <label>Voice</label>
+            <select
+              value={selectedNode.voice || ''}
+              onChange={(e) => update({ voice: e.target.value || null })}
             >
-              <Play size={14} strokeWidth={2} />
-            </button>
+              <option value="">Default</option>
+              {voices.map(v => (
+                <option key={v} value={v}>
+                  {v.split(/[\\/]/).pop()}
+                </option>
+              ))}
+            </select>
+            <div className="section-actions">
+              <label className="btn-sm upload-btn">
+                <Upload size={12} strokeWidth={1.5} /> Upload
+                <input type="file" accept="audio/*" hidden onChange={handleVoiceUpload} />
+              </label>
+              <button
+                className={`btn-sm ${recording ? 'recording' : ''}`}
+                onClick={recording ? stopRecording : startRecording}
+              >
+                <Mic size={12} strokeWidth={1.5} /> {recording ? 'Stop' : 'Rec'}
+              </button>
+            </div>
+          </div>
+
+          {/* Seed */}
+          <div className="panel-section">
+            <label>Seed</label>
+            <div className="seed-row">
+              <input
+                type="number"
+                value={selectedNode.seed}
+                onChange={(e) => update({ seed: parseInt(e.target.value) || 0 })}
+              />
+              <button className="btn-dice" onClick={randomizeSeed} title="Random seed">
+                <Dice5 size={16} strokeWidth={1.5} />
+              </button>
+              <button
+                className="btn-dice"
+                onClick={handleAudition}
+                disabled={auditioning}
+                title="Audition seed (quick preview)"
+              >
+                <Play size={14} strokeWidth={2} />
+              </button>
+            </div>
+          </div>
+
+          {/* Speed (generation-time property) */}
+          <div className="panel-section">
+            <label>Speed: {(selectedNode.speed || 1).toFixed(2)}x</label>
+            <input
+              type="range"
+              min="0.5"
+              max="2.0"
+              step="0.05"
+              value={selectedNode.speed || 1}
+              onChange={(e) => update({ speed: parseFloat(e.target.value) })}
+              style={{ accentColor: trackColor }}
+            />
+          </div>
+
+          {/* Speaking Style Instruction (Item 18) */}
+          <div className="panel-section">
+            <label>Speaking Style</label>
+            <textarea
+              rows={2}
+              value={selectedNode.instruct || ''}
+              onChange={(e) => update({ instruct: e.target.value })}
+              onBlur={() => pushHistory()}
+              placeholder="e.g. Speak cheerfully / اقرأ بصوت حماسي"
+              className="instruct-input"
+              dir="auto"
+            />
+            <div className="section-hint">
+              Controls tone, emotion, and pace. Leave empty for neutral.
+            </div>
           </div>
         </div>
-
-        {/* Speed (generation-time property) */}
-        <div className="panel-section">
-          <label>Speed: {(selectedNode.speed || 1).toFixed(2)}x</label>
-          <input
-            type="range"
-            min="0.5"
-            max="2.0"
-            step="0.05"
-            value={selectedNode.speed || 1}
-            onChange={(e) => update({ speed: parseFloat(e.target.value) })}
-            style={{ accentColor: trackColor }}
-          />
-        </div>
-
-        {/* Speaking Style Instruction (Item 18) */}
-        <div className="panel-section">
-          <label>Speaking Style</label>
-          <textarea
-            rows={2}
-            value={selectedNode.instruct || ''}
-            onChange={(e) => update({ instruct: e.target.value })}
-            onBlur={() => pushHistory()}
-            placeholder="e.g. Speak cheerfully / اقرأ بصوت حماسي"
-            className="instruct-input"
-            dir="auto"
-          />
-          <div className="section-hint">
-            Controls tone, emotion, and pace. Leave empty for neutral.
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* ═══════════ GROUP 2: Audio Engine Properties ═══════════ */}
       <div className="panel-group panel-group-engine">

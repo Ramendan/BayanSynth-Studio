@@ -1166,6 +1166,29 @@ select {
   border-color: var(--warning-border);
 }
 
+.panel-group-import {
+  border-color: #00f0ff44;
+}
+
+.import-title {
+  color: var(--accent) !important;
+}
+
+.import-waveform-canvas {
+  width: 100%;
+  height: 48px;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  display: block;
+}
+
+.import-filename {
+  font-size: 11px;
+  color: var(--text-dim);
+  word-break: break-all;
+  padding: 4px 0;
+}
+
 .panel-group-engine {
   border-color: var(--accent-border);
 }
@@ -1984,12 +2007,15 @@ select {
    ═══════════════════════════════════════════════════════════════ */
 .transitions-lane {
   padding: 10px 12px;
+  overflow-y: auto;
+  max-height: 100%;
 }
 
 .transition-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow-y: auto;
 }
 
 .transition-item {

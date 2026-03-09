@@ -12,7 +12,7 @@ Download the latest release from the [Releases](https://github.com/Ramendan/Baya
 
 ### Option A: Full package (recommended)
 
-Download **`BayanSynth-Studio-0.1.1-alpha-win-x64.7z`** (~1.5 GB).
+Download **`BayanSynth-Studio-0.1.2-win-x64.7z`** (~1.5 GB).
 
 This bundles **everything**: Electron app, embedded Python 3.11, PyTorch (CUDA 12.1), and all dependencies. No Python installation required.
 
@@ -22,7 +22,7 @@ This bundles **everything**: Electron app, embedded Python 3.11, PyTorch (CUDA 1
 
 ### Option B: Lightweight exe (for developers)
 
-Download **`BayanSynth Studio 0.1.1-alpha.exe`** (~68 MB).
+Download **`BayanSynth Studio 0.1.2.exe`** (~68 MB).
 
 This is just the Electron shell. It requires a Python 3.11 environment set up separately. See [Installation from source](#installation-from-source) below.
 

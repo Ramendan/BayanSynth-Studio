@@ -172,7 +172,7 @@ class ArabicJSONResponse(JSONResponse):
         ).encode("utf-8")
 
 
-app = FastAPI(title="BayanSynth Studio API", version="0.1.1")
+app = FastAPI(title="BayanSynth Studio API", version="0.1.2")
 
 # Allow both the Vite dev server and the packaged Electron app (file:// origin)
 app.add_middleware(
@@ -432,7 +432,7 @@ async def status():
         "model_loading": _model_loading,
         "model_dir": str(storage),
         "voices_dir": VOICES_DIR,
-        "version": "0.1.1",
+        "version": "0.1.2",
     }
 
 
