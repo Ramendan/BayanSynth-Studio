@@ -1,6 +1,6 @@
 {
   "name": "bayansynth-studio",
-  "version": "0.1.1-alpha",
+  "version": "1.0.0",
   "description": "BayanSynth Studio — Vocaloid-inspired Arabic TTS editor",
   "main": "electron/main.js",
   "private": true,
@@ -42,6 +42,9 @@
         "filter": [
           "BayanSynthTTS/bayansynthtts/**/*",
           "BayanSynthTTS/voices/**/*",
+          "BayanSynthTTS/pretrained_models/**/*",
+          "BayanSynthTTS/checkpoints/**/*",
+          "BayanSynthTTS/conf/**/*",
           "cosyvoice/**/*",
           "matcha/**/*"
         ]
