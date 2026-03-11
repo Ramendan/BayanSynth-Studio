@@ -10,22 +10,16 @@ Built on Electron, React 18, FastAPI, CosyVoice 3, and the BayanSynthTTS Arabic 
 
 Download the latest release from the [Releases](https://github.com/Ramendan/BayanSynth-Studio/releases) page.
 
-### Option A: Full package (recommended)
-
 Download **`BayanSynth-Studio-1.0.0-win-x64.7z`** from the release assets.
 
-This bundles **everything**: Electron app, embedded Python 3.11, PyTorch (CUDA 12.8), and all model weights. No Python installation required. No internet needed after extraction.
+This bundles everything: Electron app, embedded Python 3.11, PyTorch (CUDA 12.8), and all model weights. No Python installation required. No internet needed after extraction.
 
 1. Download `BayanSynth-Studio-1.0.0-win-x64.7z` into any folder
 2. Right-click it and extract with [7-Zip](https://7-zip.org)
 3. Run **`BayanSynth Studio.exe`** from the extracted folder
-4. Everything is included. No downloads needed, opens straight to the editor
+4. Everything is included, opens straight to the editor
 
-### Option B: Lightweight exe (for developers)
-
-Download **`BayanSynth Studio 1.0.0.exe`** (~68 MB).
-
-This is just the Electron shell. It requires a Python 3.11 environment set up separately. See [Installation from source](#installation-from-source) below.
+Want to run from source or build it yourself? See [Installation from source](#installation-from-source) below.
 
 ---
 
@@ -225,14 +219,6 @@ All voices are stored as 24 kHz mono WAV files in the `voices/` folder inside th
 
 From the repo root:
 
-### Lightweight build (no bundled Python)
-
-```bat
-npm run build
-```
-
-Produces a portable exe (~68 MB) that needs a separate Python environment.
-
 ### Full build (bundled Python, standalone)
 
 ```bat
@@ -255,7 +241,6 @@ Outputs to `dist/`:
 | File | What it is |
 |------|------------|
 | `BayanSynth-Studio-*.7z` | Full package with bundled Python (CUDA) |
-| `BayanSynth Studio *.exe` | Portable exe (lightweight, no Python) |
 
 ---
 
