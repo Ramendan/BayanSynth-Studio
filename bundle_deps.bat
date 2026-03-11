@@ -10,8 +10,9 @@
 ::   python backend\download_models.py  to download them after bundling.
 ::
 :: Usage:
-::   bundle_deps.bat                       auto-detect from sibling-repo layout
-::   bundle_deps.bat "C:\path\to\CosyVoice-Arabic"  "C:\path\to\BayanSynthTTS"
+::   bundle_deps.bat                           auto-detect from sibling-repo layout
+::   bundle_deps.bat "C:\path\to\BayanSynthTTS"  (single repo - has cosyvoice + matcha + bayansynthtts)
+::   bundle_deps.bat "C:\path\to\BayanSynthTTS" "C:\path\to\BayanSynthTTS"  (explicit, both same)
 
 setlocal EnableDelayedExpansion
 set "STUDIO=%~dp0"
@@ -33,7 +34,10 @@ if not defined REPO (
 )
 
 if not defined BAYAN_SRC (
-    if exist "!REPO!\BayanSynthTTS\bayansynthtts\__init__.py" (
+    if exist "!REPO!\bayansynthtts\__init__.py" (
+        :: BayanSynthTTS is the REPO itself (bayansynthtts/ is at root)
+        set "BAYAN_SRC=!REPO!"
+    ) else if exist "!REPO!\BayanSynthTTS\bayansynthtts\__init__.py" (
         set "BAYAN_SRC=!REPO!\BayanSynthTTS"
     ) else (
         for %%D in ("!REPO!\..")    do set "_PB1=%%~fD"
@@ -42,15 +46,15 @@ if not defined BAYAN_SRC (
 )
 
 if not defined REPO (
-    echo [Bundle] ERROR: Cannot find the CosyVoice-Arabic repo.
-    echo          Pass paths explicitly:
-    echo            bundle_deps.bat "C:\CosyVoice-Arabic" "C:\BayanSynthTTS"
+    echo [Bundle] ERROR: Cannot find the BayanSynthTTS repo.
+    echo          Pass the path explicitly:
+    echo            bundle_deps.bat "C:\path\to\BayanSynthTTS"
     pause & exit /b 1
 )
 if not defined BAYAN_SRC (
     echo [Bundle] ERROR: Cannot find BayanSynthTTS.
-    echo          Pass paths explicitly:
-    echo            bundle_deps.bat "C:\CosyVoice-Arabic" "C:\BayanSynthTTS"
+    echo          Pass the path explicitly:
+    echo            bundle_deps.bat "C:\path\to\BayanSynthTTS"
     pause & exit /b 1
 )
 

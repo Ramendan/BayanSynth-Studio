@@ -6,15 +6,15 @@
 ::   2. Installs all Python dependencies
 ::   3. Installs Node.js dependencies
 ::   4. Bundles cosyvoice + matcha + bayansynthtts into backend\lib\
-::      (requires the CosyVoice-Arabic repo to be a sibling folder, OR
-::       you can pass paths explicitly — see usage below)
+::    (requires the BayanSynthTTS repo to be a sibling folder, OR
+::     you can pass the path explicitly -- see usage below)
 ::   5. Downloads CosyVoice3 base model from Hugging Face  (~7 GB)
 ::   6. Downloads BayanSynthTTS LoRA checkpoint from GitHub Releases  (~1.9 GB)
 ::
 :: USAGE:
-::   setup.bat                                     (auto-detect sibling repos)
+::   setup.bat                                     (auto-detect sibling BayanSynthTTS repo)
 ::   setup.bat --skip-download                     (skip model downloads)
-::   setup.bat "C:\CosyVoice-Arabic" "C:\BayanSynthTTS"  (explicit paths)
+::   setup.bat "C:\BayanSynthTTS"                  (explicit path)
 ::
 :: REQUIREMENTS: Python 3.10+, Node.js 18+, ~12 GB free disk space
 

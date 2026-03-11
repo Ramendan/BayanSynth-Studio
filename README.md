@@ -12,14 +12,14 @@ Download the latest release from the [Releases](https://github.com/Ramendan/Baya
 
 ### Option A: Full package (recommended)
 
-Download **`BayanSynth-Studio-1.0.0-win-x64.7z.001`** (and `.002`, `.003`, `.004` parts) from the release assets.
+Download **`BayanSynth-Studio-1.0.0-win-x64.7z`** from the release assets.
 
 This bundles **everything**: Electron app, embedded Python 3.11, PyTorch (CUDA 12.8), and all model weights. No Python installation required. No internet needed after extraction.
 
-1. Download **all** `.7z.001` through `.7z.004` parts into the **same folder**
-2. Extract the **`.7z.001`** part with [7-Zip](https://7-zip.org) — it will auto-join the remaining parts
+1. Download `BayanSynth-Studio-1.0.0-win-x64.7z` into any folder
+2. Right-click it and extract with [7-Zip](https://7-zip.org)
 3. Run **`BayanSynth Studio.exe`** from the extracted folder
-4. Everything is included — no downloads needed, opens straight to the editor
+4. Everything is included. No downloads needed, opens straight to the editor
 
 ### Option B: Lightweight exe (for developers)
 
@@ -60,15 +60,15 @@ Only needed if you want to modify the code or build the app yourself.
 
 ### Step 2 - Get the code
 
-Both repos are needed: `BayanSynth-Studio` is the app and `CosyVoice-Arabic` supplies the AI engine code that gets bundled during setup:
+Both repos are needed: `BayanSynth-Studio` is the app and `BayanSynthTTS` supplies the AI engine code that gets bundled during setup:
 
 ```bat
 git clone https://github.com/Ramendan/BayanSynth-Studio.git
-git clone https://github.com/Ramendan/CosyVoice-Arabic.git
+git clone https://github.com/Ramendan/BayanSynthTTS.git
 cd BayanSynth-Studio
 ```
 
-The two folders must sit **side by side** (same parent folder). The `CosyVoice-Arabic` repo contains `cosyvoice/`, `matcha/`, and `BayanSynthTTS/` which are needed by the engine.
+The two folders must sit **side by side** (same parent folder). The `BayanSynthTTS` repo contains `cosyvoice/`, `matcha/`, and `bayansynthtts/` which are needed by the engine.
 
 ### Step 3 - Run setup
 
@@ -99,7 +99,7 @@ Model storage depends on how you're running the app:
 Models are stored in your Windows AppData folder:
 
 ```
-%APPDATA%\BayanSynth Studio\
+%APPDATA%\bayansynth-studio\
   pretrained_models\
     CosyVoice3\               <- base model (~7 GB)
   checkpoints\
@@ -107,7 +107,7 @@ Models are stored in your Windows AppData folder:
       epoch_28_whole.pt        <- Arabic LoRA (~1.9 GB)
 ```
 
-Open this folder by typing `%APPDATA%\BayanSynth Studio` in the Windows Explorer address bar.
+Open this folder by typing `%APPDATA%\bayansynth-studio` in the Windows Explorer address bar.
 
 ### Dev mode (running from source)
 
@@ -278,11 +278,11 @@ Outputs to `dist/`:
 
 ### 1. Clone
 
-Both repos are needed: the Studio app and the CosyVoice-Arabic repo that supplies the AI engine code:
+Both repos are needed: the Studio app and the BayanSynthTTS repo that supplies the AI engine code:
 
 ```bat
 git clone https://github.com/Ramendan/BayanSynth-Studio.git
-git clone https://github.com/Ramendan/CosyVoice-Arabic.git
+git clone https://github.com/Ramendan/BayanSynthTTS.git
 cd BayanSynth-Studio
 ```
 
