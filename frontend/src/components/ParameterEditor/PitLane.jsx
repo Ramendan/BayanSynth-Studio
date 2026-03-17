@@ -28,7 +28,7 @@ const LANE_HEIGHT = 120;
 const DEFAULT_MIN = -1200;  // cents
 const DEFAULT_MAX = 1200;   // cents
 
-export default function PitLane({ width = 800, zoom = 1, panX = 0, offsetX = 0, playhead = 0 }) {
+export default function PitLane({ width = 800, zoom = 1, panX = 0, offsetX = 0, playhead = 0, relativeView = false }) {
   const tracks = useAtomValue(tracksAtom);
   const selectedNodeId = useAtomValue(selectedNodeIdAtom);
   const bpm = useAtomValue(bpmAtom);
@@ -50,13 +50,22 @@ export default function PitLane({ width = 800, zoom = 1, panX = 0, offsetX = 0, 
   const pitMax      = selectedNode?.pitMax ?? DEFAULT_MAX;
   const waveformData = selectedNode?.waveformData ?? null;
 
+  const nodeStart = selectedNode?.start_time ?? 0;
+  const nodeDuration = selectedNode?.duration || 4;
+
   const timeToX = useCallback((time) => {
+    if (relativeView) {
+      return ((time - nodeStart) / nodeDuration) * width;
+    }
     return (time * bpm / 60) * PIXELS_PER_BEAT * zoom - panX;
-  }, [bpm, zoom, panX]);
+  }, [relativeView, nodeStart, nodeDuration, width, bpm, zoom, panX]);
 
   const xToTime = useCallback((x) => {
+    if (relativeView) {
+      return nodeStart + (x / width) * nodeDuration;
+    }
     return ((x + panX) / (PIXELS_PER_BEAT * zoom)) * (60 / bpm);
-  }, [bpm, zoom, panX]);
+  }, [relativeView, nodeStart, nodeDuration, width, bpm, zoom, panX]);
 
   // Range-aware coordinate helpers
   const centsToY = useCallback((cents) => {

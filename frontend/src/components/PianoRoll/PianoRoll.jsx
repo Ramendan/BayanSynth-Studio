@@ -15,7 +15,7 @@
  */
 
 import React, { useRef, useCallback, useMemo, useState, useEffect } from 'react';
-import { Stage, Layer, Line, Group, Rect, Text } from 'react-konva';
+import { Stage, Layer, Line, Arrow, Group, Rect, Text } from 'react-konva';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   tracksAtom,
@@ -40,6 +40,7 @@ import {
   endNodeTimeAtom,
   selectedNodeIdsAtom,
   showPitCurveAtom,
+  settingsAtom,
 } from '../../store/atoms';
 import { pushHistoryAtom } from '../../store/history';
 import {
@@ -49,9 +50,11 @@ import {
   NOTE_RANGE,
   PIANO_KEY_WIDTH,
   midiToNoteName,
+  TOOLS,
 } from '../../utils/constants';
 import { snapToGrid } from '../../utils/gridSnap';
 import { getTrackColor } from '../../utils/colorPalette';
+import { getThemeColors } from '../../utils/themeColors';
 
 import PianoKeys from './PianoKeys';
 import TimeRuler from './TimeRuler';
@@ -84,6 +87,10 @@ export default function PianoRoll() {
   const dragGhost = useAtomValue(dragGhostAtom);
   const setDragGhost = useSetAtom(dragGhostAtom);
   const showPitCurve = useAtomValue(showPitCurveAtom);
+  const settings = useAtomValue(settingsAtom);
+  const theme = settings.theme || 'dark';
+  const colors = getThemeColors(theme);
+  const [pencilGhost, setPencilGhost] = useState(null);
 
   const addNode = useSetAtom(addNodeAtom);
   const updateNode = useSetAtom(updateNodeAtom);
@@ -112,22 +119,31 @@ export default function PianoRoll() {
   const canvasHeight = stageSize.height;
   const gridWidth = Math.max(canvasWidth - PIANO_KEY_WIDTH, 400);
   const gridHeight = Math.max(canvasHeight - RULER_HEIGHT, 200);
+  const keyOffset = PIANO_KEY_WIDTH;
 
   // Derived zoom values
   const ppb = PIXELS_PER_BEAT * zoom; // pixels per beat on screen
 
+  const gridToScreenX = useCallback((beat, widthPx = 0) => {
+    return beat * ppb - pan.x;
+  }, [ppb, pan.x]);
+
+  const screenToBeat = useCallback((screenX, widthPx = 0) => {
+    return (screenX + pan.x) / ppb;
+  }, [pan.x, ppb]);
+
   // Playhead position in pixels (screen coords within grid)
   const playheadX = useMemo(() => {
     const beatsFromStart = (playhead / 60) * bpm;
-    return beatsFromStart * ppb - pan.x;
-  }, [playhead, bpm, ppb, pan.x]);
+    return gridToScreenX(beatsFromStart);
+  }, [playhead, bpm, gridToScreenX]);
 
   // End node marker position
   const endMarkerX = useMemo(() => {
     if (endNodeTime == null) return null;
     const beatsFromStart = (endNodeTime / 60) * bpm;
-    return beatsFromStart * ppb - pan.x;
-  }, [endNodeTime, bpm, ppb, pan.x]);
+    return gridToScreenX(beatsFromStart);
+  }, [endNodeTime, bpm, gridToScreenX]);
 
   // All nodes across all tracks (flattened with track info)
   const allNodes = useMemo(() => {
@@ -145,13 +161,13 @@ export default function PianoRoll() {
   }, [tracks]);
 
   // Convert screen position (relative to grid origin) to time/midi
-  const screenToGrid = useCallback((screenX, screenY) => {
-    const gridX = (screenX + pan.x) / ppb; // in beats
+  const screenToGrid = useCallback((screenX, screenY, widthPx = 0) => {
+    const gridX = screenToBeat(screenX, widthPx); // in beats
     const gridY = screenY + pan.y; // in pixels (unzoomed Y)
     const timeSec = (gridX * 60) / bpm;
-    const midi = NOTE_RANGE.max - Math.floor(gridY / ROW_HEIGHT);
+      const midi = NOTE_RANGE.max - 1 - Math.floor(gridY / ROW_HEIGHT);
     return { timeSec, midi, gridX };
-  }, [pan.x, pan.y, ppb, bpm]);
+  }, [screenToBeat, pan.y, bpm]);
 
   // Handle click on canvas area (node creation / selection)
   const handleStageClick = useCallback((e) => {
@@ -166,7 +182,7 @@ export default function PianoRoll() {
     const pos = stage.getPointerPosition();
 
     // Convert to grid-local coords (subtract piano keys and ruler offset)
-    const localX = pos.x - PIANO_KEY_WIDTH;
+    const localX = pos.x - keyOffset;
     const localY = pos.y - RULER_HEIGHT;
 
     if (localX < 0 || localY < 0) return;
@@ -202,7 +218,7 @@ export default function PianoRoll() {
     } else if (activeTool === 'pan') {
       // Pan tool: handled by drag (no-op on click)
     }
-  }, [activeTool, bpm, snapDivision, zoom, pan, ppb, tracks, voices, selectedTrackId, addNode, pushHistory, setSelectedNodeId, setStatus, screenToGrid]);
+  }, [activeTool, bpm, snapDivision, zoom, pan, ppb, tracks, voices, selectedTrackId, addNode, pushHistory, setSelectedNodeId, setStatus, screenToGrid, keyOffset]);
 
   // Handle wheel for zoom / pan
   const handleWheel = useCallback((e) => {
@@ -238,19 +254,46 @@ export default function PianoRoll() {
   }, [activeTool, pan.x, pan.y]);
 
   const handleStageMouseMove = useCallback((e) => {
-    if (!panDragRef.current) return;
     const pos = e.target.getStage().getPointerPosition();
-    const dx = panDragRef.current.startX - pos.x;
-    const dy = panDragRef.current.startY - pos.y;
-    setPan({
-      x: Math.max(0, panDragRef.current.startPanX + dx),
-      y: Math.max(0, Math.min(totalRows * ROW_HEIGHT - gridHeight, panDragRef.current.startPanY + dy)),
-    });
-  }, [setPan, gridHeight]);
+
+    if (panDragRef.current) {
+      const dx = panDragRef.current.startX - pos.x;
+      const dy = panDragRef.current.startY - pos.y;
+      setPan({
+        x: Math.max(0, panDragRef.current.startPanX + dx),
+        y: Math.max(0, Math.min(totalRows * ROW_HEIGHT - gridHeight, panDragRef.current.startPanY + dy)),
+      });
+    }
+
+    if (activeTool === TOOLS.PENCIL) {
+      const localX = pos.x - keyOffset;
+      const localY = pos.y - RULER_HEIGHT;
+      if (localX < 0 || localY < 0 || localX > gridWidth || localY > gridHeight) {
+        setPencilGhost(null);
+        return;
+      }
+
+      const { timeSec, midi } = screenToGrid(localX, localY);
+      if (midi < NOTE_RANGE.min || midi > NOTE_RANGE.max) {
+        setPencilGhost(null);
+        return;
+      }
+
+      const snappedTime = snapToGrid(Math.max(0, timeSec), bpm, snapDivision);
+      const beatStart = (snappedTime * bpm) / 60;
+      const ghostX = gridToScreenX(beatStart, ppb);
+      const ghostY = (NOTE_RANGE.max - midi - 1) * ROW_HEIGHT - pan.y;
+      const ghostW = ppb;
+      setPencilGhost({ x: ghostX, y: ghostY, w: ghostW, h: NOTE_HEIGHT });
+    } else {
+      setPencilGhost(null);
+    }
+  }, [activeTool, bpm, gridHeight, gridWidth, pan.x, pan.y, ppb, screenToGrid, setPan, snapDivision, keyOffset, gridToScreenX]);
 
   const handleStageMouseUp = useCallback(() => {
     panDragRef.current = null;
-  }, []);
+    setPencilGhost(null);
+  }, [setPencilGhost]);
 
   // Handle node selection — or delete if delete tool active
   const handleNodeSelect = useCallback((nodeId) => {
@@ -268,21 +311,20 @@ export default function PianoRoll() {
     const group = e.target;
     const newX = group.x();
     const newY = group.y();
-    const { timeSec, midi } = screenToGrid(newX, newY);
+    const node = allNodes.find(n => n.id === nodeId);
+    const dur = node ? (node.duration || 0.5) : 0.5;
+    const noteW = (dur * bpm / 60) * ppb;
+    const { timeSec, midi } = screenToGrid(newX, newY, 0);
     const snappedTime = snapToGrid(Math.max(0, timeSec), bpm, snapDivision);
     const clampedMidi = Math.max(NOTE_RANGE.min, Math.min(NOTE_RANGE.max, midi));
 
     const beatStart = (snappedTime * bpm) / 60;
-    const ghostX = beatStart * ppb - pan.x;
+    const ghostX = gridToScreenX(beatStart);
     const ghostY = (NOTE_RANGE.max - clampedMidi - 1) * ROW_HEIGHT - pan.y;
-
-    // Find node width
-    const node = allNodes.find(n => n.id === nodeId);
-    const dur = node ? (node.duration || 0.5) : 0.5;
     const ghostW = (dur * bpm / 60) * ppb;
 
     setDragGhost({ x: ghostX, y: ghostY, w: ghostW, h: NOTE_HEIGHT });
-  }, [screenToGrid, bpm, snapDivision, ppb, pan.x, pan.y, allNodes, setDragGhost]);
+  }, [screenToGrid, bpm, snapDivision, ppb, pan.x, pan.y, allNodes, setDragGhost, isRtl, gridToScreenX]);
 
   // Handle node drag end — snap to grid, update start_time and pitch_shift
   const handleNodeDragEnd = useCallback((nodeId, e) => {
@@ -291,19 +333,21 @@ export default function PianoRoll() {
     const newX = group.x();
     const newY = group.y();
 
-    const { timeSec, midi } = screenToGrid(newX, newY);
+    const node = allNodes.find(n => n.id === nodeId);
+    const widthPx = node ? (((node.duration || 0.5) * bpm) / 60) * ppb : 0;
+    const { timeSec, midi } = screenToGrid(newX, newY, 0);
     const snappedTime = snapToGrid(Math.max(0, timeSec), bpm, snapDivision);
     const clampedMidi = Math.max(NOTE_RANGE.min, Math.min(NOTE_RANGE.max, midi));
     const newPitchShift = clampedMidi - NOTE_RANGE.center;
 
     // Force the group back to the snapped screen position so Konva + React stay in sync
     const snappedBeat = (snappedTime * bpm) / 60;
-    group.x(snappedBeat * ppb - pan.x);
+    group.x(gridToScreenX(snappedBeat));
     group.y((NOTE_RANGE.max - clampedMidi - 1) * ROW_HEIGHT - pan.y);
 
     pushHistory();
     updateNode({ id: nodeId, start_time: snappedTime, pitch_shift: newPitchShift });
-  }, [bpm, snapDivision, screenToGrid, pushHistory, updateNode, setDragGhost, ppb, pan.x, pan.y]);
+  }, [bpm, snapDivision, screenToGrid, pushHistory, updateNode, setDragGhost, ppb, pan.x, pan.y, allNodes, isRtl, gridToScreenX]);
 
   // Handle left-edge trim
   const handleTrimLeft = useCallback((nodeId, deltaPixels) => {
@@ -325,12 +369,12 @@ export default function PianoRoll() {
     const newDuration = Math.max(0.1, (node.duration || 1) + deltaTime);
 
     const beatStart = (node.start_time * bpm) / 60;
-    const ghostX = beatStart * ppb - pan.x;
+    const ghostW = (newDuration * bpm / 60) * ppb;
+    const ghostX = gridToScreenX(beatStart, ghostW);
     const midi = NOTE_RANGE.center + (node.pitch_shift || 0);
     const ghostY = (NOTE_RANGE.max - midi - 1) * ROW_HEIGHT - pan.y;
-    const ghostW = (newDuration * bpm / 60) * ppb;
     setDragGhost({ x: ghostX, y: ghostY, w: ghostW, h: NOTE_HEIGHT });
-  }, [allNodes, ppb, bpm, pan.x, pan.y, setDragGhost]);
+  }, [allNodes, ppb, bpm, pan.x, pan.y, setDragGhost, gridToScreenX]);
 
   const handleStretchRight = useCallback((nodeId, deltaPixels) => {
     setDragGhost(null);
@@ -350,14 +394,14 @@ export default function PianoRoll() {
     const node = allNodes.find(n => n.id === nodeId);
     if (!node) return;
     // pointerX is in grid-local screen coords
-    const nodeScreenX = (node.start_time * bpm / 60) * ppb - pan.x;
-    const splitOffset = ((pointerX - nodeScreenX) / ppb) * (60 / bpm);
+    const nodeScreenX = gridToScreenX((node.start_time * bpm) / 60);
+    const splitOffset = (pointerX - nodeScreenX) / ppb * (60 / bpm);
     if (splitOffset <= 0.05 || splitOffset >= (node.duration || 1) - 0.05) return;
     const splitTime = node.start_time + splitOffset;
     pushHistory();
     splitNode({ nodeId, splitTime });
     setStatus('Split note');
-  }, [allNodes, bpm, ppb, pan.x, pushHistory, splitNode, setStatus]);
+  }, [allNodes, bpm, ppb, pan.x, pushHistory, splitNode, setStatus, isRtl, gridToScreenX]);
 
   // Handle playhead seek (from TimeRuler click)
   const handleRulerSeek = useCallback((timeSec) => {
@@ -367,34 +411,34 @@ export default function PianoRoll() {
   // Handle end marker drag
   const handleEndMarkerDrag = useCallback((e) => {
     const markerScreenX = e.target.x();
-    const beats = (markerScreenX + pan.x) / ppb;
+    const beats = screenToBeat(markerScreenX);
     const timeSec = (beats * 60) / bpm;
     setEndNodeTime(Math.max(0, timeSec));
-  }, [pan.x, ppb, bpm, setEndNodeTime]);
+  }, [screenToBeat, bpm, setEndNodeTime]);
 
   // Handle playhead drag (triangle at top) — used by Layer 3 (legacy, kept for safety)
   const handlePlayheadDrag = useCallback((e) => {
     const x = e.target.x();
-    const beats = (x + pan.x) / ppb;
+    const beats = screenToBeat(x);
     const timeSec = Math.max(0, (beats * 60) / bpm);
     setPlayhead(timeSec);
-  }, [pan.x, ppb, bpm, setPlayhead]);
+  }, [screenToBeat, bpm, setPlayhead]);
 
   // Handle playhead drag in overlay Layer 4 (absolute stage coords, includes PIANO_KEY_WIDTH)
   const handlePlayheadDragL4 = useCallback((e) => {
-    const x = e.target.x() - PIANO_KEY_WIDTH;
-    const beats = (x + pan.x) / ppb;
+    const x = e.target.x() - keyOffset;
+    const beats = screenToBeat(x);
     const timeSec = Math.max(0, (beats * 60) / bpm);
     setPlayhead(timeSec);
-  }, [pan.x, ppb, bpm, setPlayhead]);
+  }, [keyOffset, screenToBeat, bpm, setPlayhead]);
 
   // Handle end marker drag in overlay Layer 4
   const handleEndMarkerDragL4 = useCallback((e) => {
-    const x = e.target.x() - PIANO_KEY_WIDTH;
-    const beats = (x + pan.x) / ppb;
+    const x = e.target.x() - keyOffset;
+    const beats = screenToBeat(x);
     const timeSec = (beats * 60) / bpm;
     setEndNodeTime(Math.max(0, timeSec));
-  }, [pan.x, ppb, bpm, setEndNodeTime]);
+  }, [keyOffset, screenToBeat, bpm, setEndNodeTime]);
 
   // Compute node screen positions (filter hidden tracks)
   const renderedNodes = useMemo(() => {
@@ -403,13 +447,71 @@ export default function PianoRoll() {
       .map(node => {
         const beatStart = (node.start_time * bpm) / 60;
         const beatDur = ((node.duration || 0.5) * bpm) / 60;
-        const x = beatStart * ppb - pan.x;
+          const w = Math.max(beatDur * ppb, 20);
+          const x = gridToScreenX(beatStart, w);
         const midi = NOTE_RANGE.center + (node.pitch_shift || 0);
         const y = (NOTE_RANGE.max - midi - 1) * ROW_HEIGHT - pan.y;
-        const w = Math.max(beatDur * ppb, 20);
         return { ...node, screenX: x, screenY: y, screenW: w, screenH: NOTE_HEIGHT };
       });
-  }, [allNodes, bpm, ppb, pan.x, pan.y]);
+        }, [allNodes, bpm, ppb, pan.x, pan.y, gridToScreenX]);
+
+  const transitionLinks = useMemo(() => {
+    const byId = new Map(renderedNodes.map(n => [n.id, n]));
+    const links = [];
+
+    for (const track of tracks) {
+      const visibleNodes = track.nodes
+        .filter(n => byId.has(n.id))
+        .sort((a, b) => a.start_time - b.start_time);
+
+      for (let i = 1; i < visibleNodes.length; i++) {
+        const prev = visibleNodes[i - 1];
+        const curr = visibleNodes[i];
+        if (!curr.transition || curr.transition.type === 'none') continue;
+
+        const prevRendered = byId.get(prev.id);
+        const currRendered = byId.get(curr.id);
+        if (!prevRendered || !currRendered) continue;
+
+        const startX = prevRendered.screenX + prevRendered.screenW;
+        const startY = prevRendered.screenY + prevRendered.screenH * 0.5;
+        const endX = currRendered.screenX;
+        const endY = currRendered.screenY + currRendered.screenH * 0.5;
+        const midX = (startX + endX) * 0.5;
+        const lift = Math.min(20, Math.max(6, Math.abs(endX - startX) * 0.12));
+        const midY = Math.min(startY, endY) - lift;
+
+        const curveType = curr.transition.type; // 'linear' | 'cosine' | 'exponential'
+        let points, tension;
+        if (curveType === 'linear') {
+          points = [startX, startY, endX, endY];
+          tension = 0;
+        } else if (curveType === 'exponential') {
+          // Late-weighted arc: control point biased toward the end
+          points = [startX, startY, startX + (endX - startX) * 0.8, startY - lift * 1.6, endX, endY];
+          tension = 0.5;
+        } else {
+          // 'cosine' / smooth / default — symmetric arc
+          points = [startX, startY, midX, midY, endX, endY];
+          tension = 0.5;
+        }
+        const labelMap = { linear: 'LNR', cosine: 'COS', exponential: 'EXP' };
+
+        links.push({
+          id: `${prev.id}_${curr.id}`,
+          points,
+          tension,
+          color: currRendered.trackColor,
+          labelX: midX,
+          labelY: midY - 14,
+          label: labelMap[curveType] ?? 'TR',
+          targetNodeId: curr.id,
+        });
+      }
+    }
+
+    return links;
+  }, [tracks, renderedNodes]);
 
   return (
     <div className="piano-roll-container" ref={containerRef}>
@@ -429,18 +531,18 @@ export default function PianoRoll() {
           onMouseUp={handleStageMouseUp}
           onMouseLeave={handleStageMouseUp}
         >
-          {/* Layer 1: Piano Keys (fixed left column) */}
+          {/* Layer 1: Piano Keys */}
           <Layer>
-            <Group y={RULER_HEIGHT} clipX={0} clipY={0} clipWidth={PIANO_KEY_WIDTH} clipHeight={gridHeight}>
+            <Group x={0} y={RULER_HEIGHT} clipX={0} clipY={0} clipWidth={PIANO_KEY_WIDTH} clipHeight={gridHeight}>
               <Group y={-pan.y}>
-                <PianoKeys scrollY={pan.y} />
+                 <PianoKeys scrollY={pan.y} theme={theme} />
               </Group>
             </Group>
           </Layer>
 
           {/* Layer 2: Time Ruler (fixed top row, offset from piano keys) */}
           <Layer>
-            <Group x={PIANO_KEY_WIDTH} clipX={0} clipY={0} clipWidth={gridWidth} clipHeight={RULER_HEIGHT}>
+            <Group x={keyOffset} clipX={0} clipY={0} clipWidth={gridWidth} clipHeight={RULER_HEIGHT}>
               <TimeRuler
                 width={gridWidth}
                 bpm={bpm}
@@ -448,13 +550,14 @@ export default function PianoRoll() {
                 panX={pan.x}
                 snapDivision={snapDivision}
                 onSeek={handleRulerSeek}
+                theme={theme}
               />
             </Group>
           </Layer>
 
           {/* Layer 3: Grid + Notes + Playhead */}
           <Layer
-            x={PIANO_KEY_WIDTH}
+            x={keyOffset}
             y={RULER_HEIGHT}
             clipX={0}
             clipY={0}
@@ -469,7 +572,24 @@ export default function PianoRoll() {
               panX={pan.x}
               panY={pan.y}
               snapDivision={snapDivision}
+              theme={theme}
             />
+
+            {/* Pencil hover ghost */}
+            {activeTool === TOOLS.PENCIL && pencilGhost && (
+              <Rect
+                x={pencilGhost.x}
+                y={pencilGhost.y}
+                width={pencilGhost.w}
+                height={pencilGhost.h}
+                fill={colors.ghostFill}
+                stroke={colors.ghostStroke}
+                strokeWidth={1}
+                dash={[4, 4]}
+                cornerRadius={3}
+                listening={false}
+              />
+            )}
 
             {/* Snap ghost during drag */}
             {dragGhost && (
@@ -478,14 +598,53 @@ export default function PianoRoll() {
                 y={dragGhost.y}
                 width={dragGhost.w}
                 height={dragGhost.h}
-                fill="#ffffff11"
-                stroke="#ffffff44"
+                fill={colors.ghostFill}
+                stroke={colors.ghostStroke}
                 strokeWidth={1}
                 dash={[4, 4]}
                 cornerRadius={3}
                 listening={false}
               />
             )}
+
+            {/* Transition links between adjacent notes */}
+            {transitionLinks.map(link => (
+              <React.Fragment key={link.id}>
+                <Arrow
+                  points={link.points}
+                  stroke={link.color}
+                  fill={link.color}
+                  strokeWidth={2.2}
+                  opacity={0.85}
+                  tension={link.tension}
+                  lineCap="round"
+                  pointerLength={7}
+                  pointerWidth={7}
+                  dash={[6, 4]}
+                  shadowColor={link.color}
+                  shadowBlur={6}
+                  shadowOpacity={0.4}
+                  listening={true}
+                  onClick={(e) => {
+                    e.cancelBubble = true;
+                    setSelectedNodeId(link.targetNodeId);
+                  }}
+                  onMouseEnter={(e) => { e.target.getStage().container().style.cursor = 'pointer'; }}
+                  onMouseLeave={(e) => { e.target.getStage().container().style.cursor = ''; }}
+                />
+                <Text
+                  x={link.labelX - 10}
+                  y={link.labelY}
+                  width={20}
+                  align="center"
+                  text={link.label}
+                  fontSize={9}
+                  fontStyle="bold"
+                  fill={link.color}
+                  listening={false}
+                />
+              </React.Fragment>
+            ))}
 
             {/* Note blocks */}
             {renderedNodes.map(node => (
@@ -533,9 +692,9 @@ export default function PianoRoll() {
             {/* Playhead — hat in ruler area, line through grid */}
             {playheadX >= -20 && playheadX <= gridWidth + 20 && (
               <Group
-                x={PIANO_KEY_WIDTH + playheadX}
+                x={keyOffset + playheadX}
                 draggable={!isPlaying}
-                dragBoundFunc={(pos) => ({ x: Math.max(PIANO_KEY_WIDTH, pos.x), y: 0 })}
+                dragBoundFunc={(pos) => ({ x: Math.max(keyOffset, Math.min(keyOffset + gridWidth, pos.x)), y: 0 })}
                 onDragMove={handlePlayheadDragL4}
                 onMouseEnter={(e) => { if (!isPlaying) e.target.getStage().container().style.cursor = 'ew-resize'; }}
                 onMouseLeave={(e) => { e.target.getStage().container().style.cursor = ''; }}
@@ -558,9 +717,9 @@ export default function PianoRoll() {
             {/* End Marker — hat in ruler area, line through grid */}
             {endMarkerX != null && endMarkerX >= -20 && endMarkerX <= gridWidth + 20 && (
               <Group
-                x={PIANO_KEY_WIDTH + endMarkerX}
+                x={keyOffset + endMarkerX}
                 draggable
-                dragBoundFunc={(pos) => ({ x: Math.max(PIANO_KEY_WIDTH, pos.x), y: 0 })}
+                dragBoundFunc={(pos) => ({ x: Math.max(keyOffset, Math.min(keyOffset + gridWidth, pos.x)), y: 0 })}
                 onDragMove={handleEndMarkerDragL4}
                 onMouseEnter={(e) => { e.target.getStage().container().style.cursor = 'ew-resize'; }}
                 onMouseLeave={(e) => { e.target.getStage().container().style.cursor = ''; }}

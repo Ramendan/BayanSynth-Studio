@@ -8,6 +8,16 @@
 setlocal EnableDelayedExpansion
 set "STUDIO=%~dp0"
 
+if /i "%~1"=="--help" goto :usage
+if /i "%~1"=="-h" goto :usage
+
+:: Common accidental launcher arg when clicking file links in chat/tools.
+if /i "%~1"=="#file:start_studio.bat" (
+    echo [Studio] Detected accidental launcher argument: %~1
+    echo [Studio] No changes were made.
+    goto :usage
+)
+
 :: ── Locate Python venv ───────────────────────────────────────────────────────
 set "VENV="
 if exist "%STUDIO%.venv\Scripts\activate.bat" (
@@ -43,5 +53,16 @@ set "PATH=%PATH%;C:\Program Files\nodejs"
 
 :: ── Launch ───────────────────────────────────────────────────────────────────
 call "!VENV!\Scripts\activate.bat"
+set "PYTHON_EXECUTABLE=!VENV!\Scripts\python.exe"
 cd /d "%STUDIO%"
 npm run dev
+exit /b %errorlevel%
+
+:usage
+echo Usage:
+echo   start_studio.bat
+echo.
+echo Notes:
+echo   - Starts BayanSynth Studio dev launcher.
+echo   - If you need first-time setup, run: setup.bat --yes
+exit /b 0

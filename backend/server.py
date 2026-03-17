@@ -26,6 +26,7 @@ import tempfile
 import threading
 import time
 import uuid
+from functools import lru_cache
 from pathlib import Path
 
 # ── BayanSynthTTS path discovery ─────────────────────────────────────────────
@@ -139,7 +140,7 @@ import librosa
 import soundfile as sf
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -147,6 +148,10 @@ from pydantic import BaseModel, Field
 # Layout: demos/studio/voices/   (sibling of backend/ and frontend/)
 VOICES_DIR = str(_BACKEND_DIR.parent / "voices")
 os.makedirs(VOICES_DIR, exist_ok=True)
+
+# Optional compatibility switch for legacy Studio behavior.
+# Default keeps CosyVoice-like reference handling (no RMS matching).
+_MATCH_DEFAULT_VOICE_LEVEL = os.environ.get("BAYANSYNTH_MATCH_DEFAULT_VOICE_LEVEL", "0") == "1"
 
 # ── Asset sources for default voices ─────────────────────────────────────────
 # Walk up to find the repo root that contains an asset/ folder with demo WAVs.
@@ -158,6 +163,74 @@ def _find_asset(filename: str) -> str | None:
         if candidate.is_file():
             return str(candidate)
     return None
+
+
+def _active_audio_region(audio: np.ndarray) -> np.ndarray:
+    if audio.size == 0:
+        return audio
+    peak = float(np.max(np.abs(audio)))
+    if peak <= 1e-6:
+        return audio
+    gate = max(peak * 0.1, 0.01)
+    active = audio[np.abs(audio) >= gate]
+    return active if active.size else audio
+
+
+@lru_cache(maxsize=1)
+def _get_default_voice_stats() -> dict[str, float] | None:
+    candidates = [
+        os.path.join(VOICES_DIR, "default.wav"),
+        os.path.join(_LEGACY_VOICES_DIR, "default.wav") if _LEGACY_VOICES_DIR else None,
+        _find_asset("default.wav"),
+    ]
+
+    for candidate in candidates:
+        if not candidate or not os.path.isfile(candidate):
+            continue
+        try:
+            audio, sr = sf.read(candidate)
+            if len(audio.shape) > 1:
+                audio = librosa.to_mono(audio.T)
+            audio = np.asarray(audio, dtype=np.float32)
+            if sr != 24000:
+                audio = librosa.resample(audio, orig_sr=sr, target_sr=24000)
+            if audio.size == 0:
+                continue
+            active = _active_audio_region(audio)
+            rms = float(np.sqrt(np.mean(np.square(active, dtype=np.float64)))) if active.size else 0.0
+            peak = float(np.max(np.abs(audio)))
+            if rms > 1e-6 and peak > 1e-6:
+                return {"rms": rms, "peak": peak}
+        except Exception:
+            continue
+
+    return None
+
+
+def _normalize_voice_audio(audio: np.ndarray) -> np.ndarray:
+    audio = np.asarray(audio, dtype=np.float32)
+    if audio.size == 0:
+        return audio
+
+    reference = _get_default_voice_stats() if _MATCH_DEFAULT_VOICE_LEVEL else None
+    if reference:
+        active = _active_audio_region(audio)
+        current_rms = float(np.sqrt(np.mean(np.square(active, dtype=np.float64)))) if active.size else 0.0
+        if current_rms > 1e-6:
+            # Keep loudness matching conservative to avoid altering voice identity.
+            ratio = reference["rms"] / current_rms
+            ratio = float(np.clip(ratio, 0.8, 1.2))
+            audio = audio * ratio
+
+    peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+    if peak <= 1e-6:
+        return audio
+
+    ceiling = min(0.95, max(reference["peak"] * 1.05, 0.8)) if reference else 0.95
+    if peak > ceiling:
+        audio = audio * (ceiling / peak)
+
+    return np.asarray(audio, dtype=np.float32)
 
 
 class ArabicJSONResponse(JSONResponse):
@@ -199,17 +272,6 @@ app.mount("/voices", StaticFiles(directory=VOICES_DIR), name="voices")
 async def _seed_default_voices():
     """Copy bundled reference voices into the project voices/ folder on first run."""
     os.makedirs(VOICES_DIR, exist_ok=True)
-    seeds = {
-        "default_zh.wav": "zero_shot_prompt.wav",
-        "cross_lingual.wav": "cross_lingual_prompt.wav",
-    }
-    for dest_name, src_name in seeds.items():
-        dest = os.path.join(VOICES_DIR, dest_name)
-        if not os.path.isfile(dest):
-            src = _find_asset(src_name)
-            if src:
-                shutil.copy2(src, dest)
-                print(f"[BayanSynth Studio] Seeded default voice: {dest_name}")
 
 
 @app.on_event("startup")
@@ -255,12 +317,15 @@ _dl_progress: dict = {
 
 
 def _bayan_has_models() -> bool:
-    """Return True when both the base model dir and LoRA checkpoint exist.
+    """Return True when the base model dir exists.
 
     Checks both the model storage root (BAYANSYNTH_ROOT or package root)
     and, as a fallback, the package root itself to avoid false negatives
     when BAYANSYNTH_ROOT points to an empty first-run AppData dir while
     models already exist in the BayanSynthTTS repo.
+
+    NOTE: LoRA is optional for launch. If missing, synthesis still works
+    with base model defaults (lower quality/style control).
     """
     candidates: list[Path] = []
     candidates.append(_get_model_storage_root())
@@ -271,8 +336,7 @@ def _bayan_has_models() -> bool:
     for d in candidates:
         try:
             base_ok = (d / "pretrained_models" / "CosyVoice3").is_dir()
-            lora_ok = (d / "checkpoints" / "llm" / "epoch_28_whole.pt").is_file()
-            if base_ok and lora_ok:
+            if base_ok:
                 return True
         except Exception:
             pass
@@ -339,7 +403,7 @@ class TimelineNode(BaseModel):
     fade_in: float = 0.0
     fade_out: float = 0.0
     volume: float = 1.0
-    pan: float = 0.0
+    pan: float | None = 0.0
     seed: int = 42
     instruct: str | None = None
     engine_speed: float = 1.0
@@ -443,7 +507,7 @@ async def setup_status():
     """Check whether the required model files are present on disk.
 
     Returns:
-        ready      — True when both base model and LoRA are present
+        ready      — True when base model is present (LoRA optional)
         base_model — True when pretrained_models/CosyVoice3/ dir exists
         lora       — True when checkpoints/llm/epoch_28_whole.pt exists
         model_dir  — Absolute path where the base model will be / is saved
@@ -456,14 +520,14 @@ async def setup_status():
         base_ok   = model_dir.is_dir()
         lora_ok   = lora_path.is_file()
         # Also allow models that live in the package root (dev mode)
-        if not (base_ok and lora_ok):
+        if not base_ok:
             pkg = _find_package_root()
             if pkg is not None and pkg != storage:
                 pkg_base = (pkg / "pretrained_models" / "CosyVoice3").is_dir()
                 pkg_lora = (pkg / "checkpoints" / "llm" / "epoch_28_whole.pt").is_file()
-                if pkg_base and pkg_lora:
+                if pkg_base:
                     base_ok = True
-                    lora_ok = True
+                    lora_ok = pkg_lora
                     model_dir = pkg / "pretrained_models" / "CosyVoice3"
                     lora_path = pkg / "checkpoints" / "llm" / "epoch_28_whole.pt"
     except Exception:
@@ -474,7 +538,7 @@ async def setup_status():
         lora_ok   = False
     return ArabicJSONResponse(
         content={
-            "ready":      base_ok and lora_ok,
+            "ready":      base_ok,
             "base_model": base_ok,
             "lora":       lora_ok,
             "model_dir":  str(model_dir),
@@ -721,7 +785,11 @@ async def tashkeel(req: TashkeelRequest):
     if not _models_ready:
         raise HTTPException(status_code=503, detail={"error": "models_not_ready", "hint": "Complete first-run setup."})
     try:
-        from bayansynthtts.tashkeel import auto_diacritize, detect_diacritization_ratio
+        from bayansynthtts.tashkeel import (
+            auto_diacritize,
+            detect_diacritization_ratio,
+            detect_letter_diacritization_ratio,
+        )
         result = auto_diacritize(req.text)
         # Normalize to NFC so diacritics are properly combined in the browser
         result = unicodedata.normalize("NFC", result)
@@ -732,6 +800,8 @@ async def tashkeel(req: TashkeelRequest):
                 "diacritized": result,
                 "original_ratio": round(detect_diacritization_ratio(req.text), 3),
                 "result_ratio": round(detect_diacritization_ratio(result), 3),
+                "original_letter_ratio": round(detect_letter_diacritization_ratio(req.text), 3),
+                "result_letter_ratio": round(detect_letter_diacritization_ratio(result), 3),
             },
             media_type="application/json; charset=utf-8",
         )
@@ -753,6 +823,10 @@ async def list_voices(voices_dir: str | None = None):
 
     def _add(name: str):
         key = os.path.basename(name)
+        # Hide legacy default.wav from the explicit list because the frontend
+        # already exposes it as the built-in default voice option.
+        if key.lower() == "default.wav":
+            return
         if key not in seen:
             seen.add(key)
             voices.append(key)
@@ -777,6 +851,27 @@ async def list_voices(voices_dir: str | None = None):
                     _add(full)
 
     return {"voices": voices}
+
+
+@app.get("/api/voices/preview/{name:path}")
+async def preview_voice(name: str):
+    """Stream the actual voice reference audio file for preview playback."""
+    voice_name = os.path.basename(name or "")
+    if not voice_name:
+        raise HTTPException(400, "Voice name is required")
+
+    resolved = _resolve_voice_path(_TTS, voice_name)
+    if not resolved or not os.path.isfile(resolved):
+        raise HTTPException(404, "Voice preview not found")
+
+    suffix = os.path.splitext(resolved)[1].lower()
+    media_type = {
+        ".wav": "audio/wav",
+        ".mp3": "audio/mpeg",
+        ".ogg": "audio/ogg",
+        ".flac": "audio/flac",
+    }.get(suffix, "application/octet-stream")
+    return FileResponse(resolved, media_type=media_type, filename=os.path.basename(resolved))
 
 
 @app.post("/api/voices/upload")
@@ -835,12 +930,10 @@ async def upload_voice(file: UploadFile = File(...)):
             except OSError:
                 pass
 
-    # Resample to 24 kHz and normalise
+    # Resample to 24 kHz and normalize against the bundled default female voice.
     if sr != 24000:
         audio = librosa.resample(audio, orig_sr=sr, target_sr=24000)
-    peak = np.abs(audio).max()
-    if peak > 0:
-        audio = audio / peak * 0.9
+    audio = _normalize_voice_audio(audio)
 
     sf.write(dest, audio, 24000, subtype='PCM_16')
     return {"filename": safe_name, "path": dest}

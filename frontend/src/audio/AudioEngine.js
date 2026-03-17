@@ -39,6 +39,54 @@ class AudioEngine {
     this._wasmReady = false;
   }
 
+  _midiToHz(midi) {
+    return 440 * Math.pow(2, (midi - 69) / 12);
+  }
+
+  _scheduleToneNode(node, contextTime, trackVolume = 1.0, trackPan = 0, onEnd = null) {
+    const dur = Math.max(0.05, node.duration || 0.35);
+    const midi = 60 + (node.pitch_shift || 0);
+    const baseFreq = this._midiToHz(midi);
+    const baseVol = Math.max(0, Math.min(1.2, (node.volume || 1.0) * trackVolume * 0.2));
+
+    const osc = this.ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(baseFreq, contextTime);
+
+    if (node.automationPIT && node.automationPIT.length > 0) {
+      const nodeStart = node.start_time ?? 0;
+      for (const pt of node.automationPIT) {
+        const t = contextTime + Math.max(0, pt.time - nodeStart);
+        const targetFreq = baseFreq * Math.pow(2, (pt.value || 0) / 1200);
+        osc.frequency.linearRampToValueAtTime(targetFreq, t);
+      }
+    }
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0, contextTime);
+    gain.gain.linearRampToValueAtTime(baseVol, contextTime + Math.min(0.02, dur * 0.25));
+    gain.gain.setValueAtTime(baseVol, contextTime + Math.max(0.02, dur - 0.03));
+    gain.gain.linearRampToValueAtTime(0, contextTime + dur);
+
+    const panner = this.ctx.createStereoPanner();
+    const panValue = node.pan !== null && node.pan !== undefined ? node.pan : trackPan;
+    panner.pan.value = Math.max(-1, Math.min(1, panValue));
+
+    osc.connect(gain);
+    gain.connect(panner);
+    panner.connect(this.ctx.destination);
+
+    osc.start(contextTime);
+    osc.stop(contextTime + dur);
+
+    osc.onended = () => {
+      this.sources.delete(node.id);
+      if (onEnd) onEnd();
+    };
+
+    this.sources.set(node.id, { source: osc, gain, panner });
+  }
+
   /** Called by settings watcher; applies on next context creation. */
   setLatencyHint(bufferSize) {
     this._latencyHint = _bufSizeToLatency(bufferSize);
@@ -323,11 +371,15 @@ class AudioEngine {
    * Play a single node with pitch shift, volume, and pan.
    */
   async playNode(node, options = {}) {
-    if (!node.audioUrl) return;
-
     const { onEnd, when, offset: startOffset, trackVolume = 1.0, trackPan = 0 } = options;
 
     this.stopNode(node.id);
+
+    const nodeContextTime = this.ctx.currentTime + (when || 0);
+    if (!node.audioUrl) {
+      this._scheduleToneNode(node, nodeContextTime, trackVolume, trackPan, onEnd);
+      return;
+    }
 
     // Ensure original buffer is loaded
     let original = this.buffers.get(node.id);
@@ -353,7 +405,6 @@ class AudioEngine {
 
     // Duration (needed before vibrato/effects — compute early)
     const dur = node.duration ?? (playBuffer.duration / engineSpeed);
-    const nodeContextTime = this.ctx.currentTime + (when || 0);
 
     // Gain node: node volume × track volume
     const baseVol = Math.max(0, Math.min(2, (node.volume || 1.0) * trackVolume));
@@ -425,7 +476,10 @@ class AudioEngine {
    * @param {number}  intraNodeOffset — seconds into the node to skip (for mid-node seek)
    */
   async scheduleNode(node, contextTime, trackVolume = 1.0, trackPan = 0, intraNodeOffset = 0, prevNode = null) {
-    if (!node.audioUrl) return;
+    if (!node.audioUrl) {
+      this._scheduleToneNode(node, contextTime, trackVolume, trackPan);
+      return;
+    }
 
     // Ensure original buffer is loaded
     let original = this.buffers.get(node.id);

@@ -21,10 +21,12 @@ import { undoAtom, redoAtom, canUndoAtom, canRedoAtom } from '../store/history';
 import { pushHistoryAtom } from '../store/history';
 import { getTransport } from '../audio/TransportController';
 import { TOOLS } from '../utils/constants';
+import { useI18n } from '../utils/useI18n';
 
 const ICO = { size: 16, strokeWidth: 1.5 };
 
 export default function Toolbar() {
+  const { t } = useI18n();
   const [activeTool, setActiveTool] = useAtom(activeToolAtom);
   const [isPlaying, setIsPlaying] = useAtom(isPlayingAtom);
   const [playhead, setPlayhead] = useAtom(playheadAtom);
@@ -86,35 +88,35 @@ export default function Toolbar() {
         <button
           className={`tool-btn ${activeTool === TOOLS.ARROW ? 'active' : ''}`}
           onClick={() => setActiveTool(TOOLS.ARROW)}
-          title="Arrow Tool (V) — Select & Move"
+          title={t('Arrow Tool (V) — Select & Move', 'أداة السهم (V) — تحديد وتحريك')}
         >
           <MousePointer2 {...ICO} />
         </button>
         <button
           className={`tool-btn ${activeTool === TOOLS.PENCIL ? 'active' : ''}`}
           onClick={() => setActiveTool(TOOLS.PENCIL)}
-          title="Pencil Tool (B) — Draw Notes"
+          title={t('Pencil Tool (B) — Draw Notes', 'أداة القلم (B) — رسم النغمات')}
         >
           <Pencil {...ICO} />
         </button>
         <button
           className={`tool-btn ${activeTool === TOOLS.SCISSOR ? 'active' : ''}`}
           onClick={() => setActiveTool(TOOLS.SCISSOR)}
-          title="Scissor Tool (C) — Split Nodes"
+          title={t('Scissor Tool (C) — Split Nodes', 'أداة المقص (C) — تقسيم العقد')}
         >
           <Scissors {...ICO} />
         </button>
         <button
           className={`tool-btn ${activeTool === TOOLS.DELETE ? 'active' : ''}`}
           onClick={() => setActiveTool(TOOLS.DELETE)}
-          title="Delete Tool (D) — Remove Nodes"
+          title={t('Delete Tool (D) — Remove Nodes', 'أداة الحذف (D) — إزالة العقد')}
         >
           <Trash2 {...ICO} />
         </button>
         <button
           className={`tool-btn ${activeTool === TOOLS.PAN ? 'active' : ''}`}
           onClick={() => setActiveTool(TOOLS.PAN)}
-          title="Pan Tool (H) — Drag Canvas"
+          title={t('Pan Tool (H) — Drag Canvas', 'أداة التحريك (H) — سحب اللوحة')}
         >
           <Hand {...ICO} />
         </button>
@@ -126,7 +128,7 @@ export default function Toolbar() {
           className="tool-btn"
           onClick={() => undo()}
           disabled={!canUndo}
-          title="Undo (Ctrl+Z)"
+          title={t('Undo (Ctrl+Z)', 'تراجع (Ctrl+Z)')}
         >
           <Undo2 {...ICO} />
         </button>
@@ -134,7 +136,7 @@ export default function Toolbar() {
           className="tool-btn"
           onClick={() => redo()}
           disabled={!canRedo}
-          title="Redo (Ctrl+Y)"
+          title={t('Redo (Ctrl+Y)', 'إعادة (Ctrl+Y)')}
         >
           <Redo2 {...ICO} />
         </button>
@@ -142,7 +144,7 @@ export default function Toolbar() {
           className="tool-btn"
           onClick={() => { pushHistory(); duplicateSelected(); }}
           disabled={!selectedNodeId}
-          title="Duplicate Selected Node (Ctrl+D)"
+          title={t('Duplicate Selected Node (Ctrl+D)', 'نسخ العقدة المحددة (Ctrl+D)')}
         >
           <Copy {...ICO} />
         </button>
@@ -153,21 +155,21 @@ export default function Toolbar() {
         <button
           className={`transport-btn ${isPlaying ? 'playing' : ''}`}
           onClick={handlePlayPause}
-          title="Play / Pause (Space)"
+          title={t('Play / Pause (Space)', 'تشغيل / إيقاف (Space)')}
         >
           {isPlaying ? <Pause size={14} strokeWidth={2} /> : <Play size={14} strokeWidth={2} />}
         </button>
         <button
           className="transport-btn"
           onClick={handleStop}
-          title="Stop"
+          title={t('Stop', 'إيقاف')}
         >
           <Square size={12} strokeWidth={2} />
         </button>
         <button
           className={`transport-btn ${isLooping ? 'playing' : ''}`}
           onClick={() => setIsLooping(!isLooping)}
-          title="Toggle Loop"
+          title={t('Toggle Loop', 'تفعيل/تعطيل التكرار')}
         >
           <Repeat size={14} strokeWidth={1.5} />
         </button>

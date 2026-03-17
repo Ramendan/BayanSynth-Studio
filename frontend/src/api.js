@@ -193,6 +193,11 @@ export async function listVoices(customDir = null) {
   return data.voices || [];
 }
 
+export function getVoicePreviewUrl(name) {
+  const voiceName = (name && String(name).trim()) ? String(name).trim() : 'default.wav';
+  return `${API_BASE}/voices/preview/${encodeURIComponent(voiceName)}`;
+}
+
 export async function uploadVoice(file) {
   const formData = new FormData();
   formData.append('file', file);
@@ -200,7 +205,14 @@ export async function uploadVoice(file) {
     method: 'POST',
     body: formData,
   });
-  if (!res.ok) throw new Error('Upload failed');
+    if (!res.ok) {
+      let detail = 'Upload failed';
+      try {
+        const body = await res.json();
+        detail = body.detail || body.error || detail;
+      } catch { /* ignore parse error */ }
+      throw new Error(detail);
+    }
   return res.json();
 }
 

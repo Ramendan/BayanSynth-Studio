@@ -9,8 +9,11 @@
 import React, { useMemo } from 'react';
 import { Group, Rect, Text, Line } from 'react-konva';
 import { NOTE_RANGE, ROW_HEIGHT, PIANO_KEY_WIDTH, midiToNoteName, isBlackKey } from '../../utils/constants';
+import { getThemeColors } from '../../utils/themeColors';
 
-export default function PianoKeys({ scrollY = 0, scaleY = 1 }) {
+export default function PianoKeys({ scrollY = 0, scaleY = 1, theme = 'dark' }) {
+  const colors = getThemeColors(theme);
+
   const keys = useMemo(() => {
     const result = [];
     for (let midi = NOTE_RANGE.max - 1; midi >= NOTE_RANGE.min; midi--) {
@@ -30,7 +33,7 @@ export default function PianoKeys({ scrollY = 0, scaleY = 1 }) {
         y={0}
         width={PIANO_KEY_WIDTH}
         height={keys.length * ROW_HEIGHT}
-        fill="#0e0e12"
+          fill={colors.pianoBg}
       />
 
       {keys.map((k) => (
@@ -41,8 +44,8 @@ export default function PianoKeys({ scrollY = 0, scaleY = 1 }) {
             y={0}
             width={PIANO_KEY_WIDTH}
             height={ROW_HEIGHT}
-            fill={k.black ? '#0a0a0e' : '#1a1a22'}
-            stroke="#1e1e28"
+              fill={k.black ? colors.pianoKeyBlack : colors.pianoKeyWhite}
+              stroke={colors.pianoBorderLight}
             strokeWidth={0.5}
           />
 
@@ -50,7 +53,7 @@ export default function PianoKeys({ scrollY = 0, scaleY = 1 }) {
           {k.isC && (
             <Line
               points={[0, ROW_HEIGHT, PIANO_KEY_WIDTH, ROW_HEIGHT]}
-              stroke="#2a2a3c"
+                stroke={colors.pianoBorderAccent}
               strokeWidth={1}
             />
           )}
@@ -61,7 +64,7 @@ export default function PianoKeys({ scrollY = 0, scaleY = 1 }) {
               x={4}
               y={ROW_HEIGHT / 2 - 5}
               text={k.name}
-              fill={k.isC ? '#888898' : '#4a4a58'}
+                fill={k.isC ? colors.pianoLabel : colors.pianoLabelDim}
               fontSize={k.isC ? 11 : 9}
               fontFamily="Consolas, SF Mono, monospace"
               fontStyle={k.isC ? 'bold' : 'normal'}
@@ -75,7 +78,7 @@ export default function PianoKeys({ scrollY = 0, scaleY = 1 }) {
               y={0}
               width={3}
               height={ROW_HEIGHT}
-              fill="#2a2a3c"
+                fill={colors.pianoBorderAccent}
             />
           )}
         </Group>
@@ -84,7 +87,7 @@ export default function PianoKeys({ scrollY = 0, scaleY = 1 }) {
       {/* Right border */}
       <Line
         points={[PIANO_KEY_WIDTH - 1, 0, PIANO_KEY_WIDTH - 1, keys.length * ROW_HEIGHT]}
-        stroke="#2a2a3c"
+          stroke={colors.pianoBorderAccent}
         strokeWidth={1}
       />
     </Group>

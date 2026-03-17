@@ -72,7 +72,7 @@ export default function App() {
   const [modelPaths, setModelPaths] = useState({ model_dir: '', lora_path: '' });
   const setVoices = useSetAtom(voicesAtom);
   const setStatus = useSetAtom(statusTextAtom);
-  const tracks = useAtomValue(tracksAtom);
+  const [tracks, setTracks] = useAtom(tracksAtom);
   const [isGenerating, setGenerating] = useAtom(isGeneratingAtom);
   const [isPlaying, setIsPlaying] = useAtom(isPlayingAtom);
   const updateNode = useSetAtom(updateNodeAtom);
@@ -80,6 +80,8 @@ export default function App() {
   const addNode = useSetAtom(addNodeAtom);
   const selectedNodeId = useAtomValue(selectedNodeIdAtom);
   const selectedTrackId = useAtomValue(selectedTrackIdAtom);
+  const setSelectedTrackId = useSetAtom(selectedTrackIdAtom);
+  const setSelectedNodeId = useSetAtom(selectedNodeIdAtom);
   const undo = useSetAtom(undoAtom);
   const redo = useSetAtom(redoAtom);
   const saveProject = useSetAtom(saveProjectAtom);
@@ -95,7 +97,8 @@ export default function App() {
   const setUnsaved = useSetAtom(unsavedChangesAtom);
   const settings = useAtomValue(settingsAtom);
   const [autoTashkeel, setAutoTashkeelAtom] = useAtom(autoTashkeelAtom);
-  const [, setBpm] = useAtom(bpmAtom);
+  const [bpm, setBpm] = useAtom(bpmAtom);
+  const uiScale = Math.max(0.85, Math.min(1.5, (settings.fontSize || 14) / 14));
   // Mark unsaved changes whenever tracks mutate
   const tracksRef = React.useRef(tracks);
   useEffect(() => {
@@ -175,7 +178,10 @@ export default function App() {
   // ── Apply theme to document root ───────────────
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', settings.theme || 'dark');
-  }, [settings.theme]);
+    document.documentElement.lang = settings.language || 'en';
+    document.documentElement.dir = 'ltr';
+    document.documentElement.style.fontSize = `${settings.fontSize || 14}px`;
+  }, [settings.theme, settings.fontSize, settings.language]);
 
   // ── Auto-tashkeel default → live atom ──────────
   useEffect(() => {
@@ -313,9 +319,13 @@ export default function App() {
         // Write binary to disk via Electron IPC
         const arrayBuf = await blob.arrayBuffer();
         const bytes = new Uint8Array(arrayBuf);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-        const base64 = btoa(binary);
+          // Use chunked encoding — a single btoa() over a large array exhausts the call stack
+          const CHUNK = 0x8000;
+          let binary = '';
+          for (let i = 0; i < bytes.length; i += CHUNK) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+          }
+          const base64 = btoa(binary);
         await window.electronAPI.writeBinaryFile(savePath, base64);
         setStatus(`Export complete — saved to ${savePath}`);
       } else {
@@ -366,6 +376,7 @@ export default function App() {
       setStatus(`Import error: ${err.message}`);
     }
   }, [tracks, selectedTrackId, addNode, setStatus]);
+
 
   // ── Play/Pause toggle ──────────────────────────
   const togglePlayPause = useCallback(async () => {
@@ -482,7 +493,17 @@ export default function App() {
   }
 
   return (
-    <div className="studio-layout">
+    <div
+      className="studio-layout"
+      style={uiScale === 1
+        ? undefined
+        : {
+            transform: `scale(${uiScale})`,
+            transformOrigin: 'top left',
+            width: `${100 / uiScale}vw`,
+            height: `${100 / uiScale}vh`,
+          }}
+    >
       <TopBar
         onSynthesizeAll={synthesizeAll}
         onExport={handleExport}
@@ -491,7 +512,9 @@ export default function App() {
       <Toolbar />
 
       <div className="main-area">
-        <PianoRoll />
+        <div className="editor-panel">
+          <PianoRoll />
+        </div>
         <PropertiesPanel />
       </div>
 

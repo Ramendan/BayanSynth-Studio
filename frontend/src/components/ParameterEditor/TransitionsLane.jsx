@@ -73,6 +73,12 @@ export default function TransitionsLane({ width = 800 }) {
 
   const handleSliderUp = useCallback(() => { pushed.current = false; }, []);
 
+  const applyPreset = useCallback((nodeId, type, duration) => {
+    if (!pushed.current) { pushHistory(); pushed.current = true; }
+    updateNode({ id: nodeId, transition: { type, duration } });
+    pushed.current = false;
+  }, [pushHistory, updateNode]);
+
   if (!selectedTrack) {
     return (
       <div className="param-lane transitions-lane empty">
@@ -95,49 +101,70 @@ export default function TransitionsLane({ width = 800 }) {
     <div className="param-lane transitions-lane">
       <div className="transition-list">
         {pairs.map(({ prevNode, currNode, gap, transition }, i) => {
-          const isSelected = currNode.id === selectedNodeId || prevNode.id === selectedNodeId;
+          const incomingSelected = currNode.id === selectedNodeId;
+          const sourceSelected = prevNode.id === selectedNodeId;
+          const isSelected = incomingSelected || sourceSelected;
+          const enabled = transition.type !== 'none';
           return (
             <div
               key={i}
-              className="transition-item"
+              className={`transition-item ${isSelected ? 'is-selected' : ''} ${incomingSelected ? 'is-target' : ''}`}
               style={{
-                borderColor: isSelected ? 'var(--magenta)' : undefined,
-                background: isSelected ? '#ff2dcc08' : undefined,
+                borderColor: incomingSelected ? 'var(--accent)' : isSelected ? 'var(--cyan)' : undefined,
               }}
             >
-              <div className="transition-nodes">
-                <strong style={{ color: 'var(--text)' }}>
-                  {prevNode.text?.slice(0, 12) || '(empty)'} → {currNode.text?.slice(0, 12) || '(empty)'}
-                </strong>
-                <br />
-                Gap: {gap < 0 ? `${(-gap * 1000).toFixed(0)}ms overlap` : `${(gap * 1000).toFixed(0)}ms`}
+              <div className="transition-item-head">
+                <div className={`transition-node-pill ${sourceSelected ? 'source' : ''}`}>
+                  From: {prevNode.text?.slice(0, 14) || '(empty)'}
+                </div>
+                <div className="transition-arrow">→</div>
+                <div className={`transition-node-pill target ${incomingSelected ? 'selected' : ''}`}>
+                  Into: {currNode.text?.slice(0, 14) || '(empty)'}
+                </div>
               </div>
 
-              <select
-                value={transition.type}
-                onChange={(e) => handleChange(currNode.id, 'type', e.target.value)}
-              >
-                {TRANSITION_TYPES.map(t => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-dim)' }}>
-                Duration
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={transition.duration}
-                  onMouseDown={() => { pushed.current = false; }}
-                  onMouseUp={handleSliderUp}
-                  onChange={(e) => handleChange(currNode.id, 'duration', e.target.value)}
-                />
-                <span style={{ fontFamily: 'monospace', fontSize: 10, minWidth: 40 }}>
-                  {(transition.duration * 1000).toFixed(0)}ms
+              <div className="transition-meta-row">
+                <span className={`transition-state-badge ${enabled ? 'enabled' : 'disabled'}`}>
+                  {enabled ? 'Active on target note' : 'Cut / disabled'}
                 </span>
-              </label>
+                <span className="transition-gap-badge">
+                  {gap < 0 ? `${(-gap * 1000).toFixed(0)}ms overlap` : `${(gap * 1000).toFixed(0)}ms gap`}
+                </span>
+              </div>
+
+              <div className="transition-controls-grid">
+                <label className="transition-control-group">
+                  <span>Style</span>
+                  <select
+                    value={transition.type}
+                    onChange={(e) => handleChange(currNode.id, 'type', e.target.value)}
+                  >
+                    {TRANSITION_TYPES.map(t => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="transition-control-group transition-control-group-wide">
+                  <span>Blend: {(transition.duration * 1000).toFixed(0)}ms</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={transition.duration}
+                    onMouseDown={() => { pushed.current = false; }}
+                    onMouseUp={handleSliderUp}
+                    onChange={(e) => handleChange(currNode.id, 'duration', e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="transition-presets-row">
+                <button className="transition-preset" onClick={() => applyPreset(currNode.id, 'none', 0)}>Cut</button>
+                <button className="transition-preset" onClick={() => applyPreset(currNode.id, 'linear', 0.08)}>Short</button>
+                <button className="transition-preset" onClick={() => applyPreset(currNode.id, 'cosine', 0.18)}>Smooth</button>
+              </div>
             </div>
           );
         })}

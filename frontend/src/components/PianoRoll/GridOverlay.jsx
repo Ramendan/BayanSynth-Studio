@@ -11,8 +11,11 @@
 import React, { useMemo } from 'react';
 import { Group, Rect, Line } from 'react-konva';
 import { NOTE_RANGE, ROW_HEIGHT, PIXELS_PER_BEAT, isBlackKey } from '../../utils/constants';
+import { getThemeColors } from '../../utils/themeColors';
 
-export default function GridOverlay({ width, height, zoom = 1, panX = 0, panY = 0, snapDivision = '1/4' }) {
+export default function GridOverlay({ width, height, zoom = 1, panX = 0, panY = 0, snapDivision = '1/4', theme = 'dark' }) {
+  const colors = getThemeColors(theme);
+
   const ppb = PIXELS_PER_BEAT * zoom; // pixels per beat on screen
   const totalRows = NOTE_RANGE.max - NOTE_RANGE.min;
   const contentHeight = totalRows * ROW_HEIGHT;
@@ -67,7 +70,7 @@ export default function GridOverlay({ width, height, zoom = 1, panX = 0, panY = 
         y={0}
         width={width}
         height={height}
-        fill="#0d0d12"
+          fill={colors.gridBg}
       />
 
       {/* Row backgrounds */}
@@ -79,7 +82,7 @@ export default function GridOverlay({ width, height, zoom = 1, panX = 0, panY = 
           y={row.y}
           width={width}
           height={ROW_HEIGHT}
-          fill={row.black ? '#0c0c10' : '#12121a'}
+            fill={row.black ? colors.gridRowBlack : colors.gridRowWhite}
         />
       ))}
 
@@ -88,7 +91,7 @@ export default function GridOverlay({ width, height, zoom = 1, panX = 0, panY = 
         <Line
           key={`hline_${row.midi}`}
           points={[0, row.y + ROW_HEIGHT, width, row.y + ROW_HEIGHT]}
-          stroke={row.midi % 12 === 0 ? '#2a2a3c' : '#161620'}
+            stroke={row.midi % 12 === 0 ? colors.gridLineOctave : colors.gridLineLight}
           strokeWidth={row.midi % 12 === 0 ? 1 : 0.5}
           listening={false}
         />
@@ -99,11 +102,11 @@ export default function GridOverlay({ width, height, zoom = 1, panX = 0, panY = 
         <Line
           key={`vline_${i}`}
           points={[line.x, 0, line.x, height]}
-          stroke={
-            line.isBar ? '#2a2a3c' :
-            line.isBeat ? '#1a1a28' :
-            '#141420'
-          }
+            stroke={
+              line.isBar ? colors.gridLineBar :
+              line.isBeat ? colors.gridLineBeat :
+              colors.gridLineSub
+            }
           strokeWidth={line.isBar ? 1 : 0.5}
           dash={line.isBeat ? undefined : [2, 4]}
           listening={false}

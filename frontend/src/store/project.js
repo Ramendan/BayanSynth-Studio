@@ -159,6 +159,8 @@ export const saveProjectAtom = atom(null, async (get, set) => {
       set(unsavedChangesAtom, false);
       return { success: true, path: filePath };
     }
+      // User cancelled the native dialog — don't fall through to browser download
+      return { success: false, error: 'Cancelled' };
   }
 
   // Browser fallback

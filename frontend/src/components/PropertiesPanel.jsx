@@ -12,10 +12,10 @@
  * Lucide-react icons throughout.
  */
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
-  Dice5, Play, Mic, Upload, AlertTriangle, Trash2, Copy,
+  Dice5, Play, Square, Mic, Upload, AlertTriangle, Trash2, Copy,
   RotateCcw, Zap,
 } from 'lucide-react';
 import {
@@ -36,10 +36,15 @@ import { pushHistoryAtom } from '../store/history';
 import { arabicToPhonemes, hasDiacritics } from '../utils/phonemeMap';
 import { midiToNoteName, NOTE_RANGE } from '../utils/constants';
 import { getTrackColor } from '../utils/colorPalette';
-import { diacritize, uploadVoice, listVoices, audition as auditionApi, synthesize as synthesizeApi } from '../api';
+import { diacritize, uploadVoice, listVoices, synthesize as synthesizeApi, audition as auditionApi, getVoicePreviewUrl } from '../api';
 import { getEngine } from '../audio/AudioEngine';
+import { blobToWavFile } from '../utils/audioWav';
+import { useI18n } from '../utils/useI18n';
+
+const MAX_RECORDING_DURATION = 30;
 
 export default function PropertiesPanel() {
+  const { t } = useI18n();
   const tracks = useAtomValue(tracksAtom);
   const selectedNode = useAtomValue(selectedNodeAtom);
   const voices = useAtomValue(voicesAtom);
@@ -52,10 +57,66 @@ export default function PropertiesPanel() {
   const pushHistory = useSetAtom(pushHistoryAtom);
 
   const [recording, setRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
   const [auditioning, setAuditioning] = useState(false);
+  const [previewingVoice, setPreviewingVoice] = useState(false);
+  const [previewingNode, setPreviewingNode] = useState(false);
+  const [previewingPendingRecording, setPreviewingPendingRecording] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [pendingRecordingBlob, setPendingRecordingBlob] = useState(null);
+  const [pendingRecordingUrl, setPendingRecordingUrl] = useState(null);
+  const [recordingName, setRecordingName] = useState('');
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
+  const timerRef = useRef(null);
+  const streamRef = useRef(null);
+  const previewAudioRef = useRef(null);
+  const previewAudioKeyRef = useRef(null);
+  const nodePreviewIdRef = useRef(null);
+
+  const stopManagedPreview = useCallback(() => {
+    const audio = previewAudioRef.current;
+    if (audio) {
+      audio.onended = null;
+      audio.onerror = null;
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {}
+      if (audio.__revokeUrl) {
+        URL.revokeObjectURL(audio.__revokeUrl);
+      }
+      previewAudioRef.current = null;
+    }
+    previewAudioKeyRef.current = null;
+    setAuditioning(false);
+    setPreviewingVoice(false);
+    setPreviewingPendingRecording(false);
+  }, []);
+
+  const stopNodePreview = useCallback(() => {
+    if (nodePreviewIdRef.current) {
+      getEngine().stopNode(nodePreviewIdRef.current);
+      nodePreviewIdRef.current = null;
+    }
+    setPreviewingNode(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (pendingRecordingUrl) URL.revokeObjectURL(pendingRecordingUrl);
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (streamRef.current) streamRef.current.getTracks().forEach((track) => track.stop());
+      stopManagedPreview();
+      stopNodePreview();
+    };
+  }, [pendingRecordingUrl, stopManagedPreview, stopNodePreview]);
+
+  useEffect(() => {
+    if (nodePreviewIdRef.current && selectedNode?.id !== nodePreviewIdRef.current) {
+      stopNodePreview();
+    }
+  }, [selectedNode?.id, stopNodePreview]);
 
   // Find track context for color
   const trackContext = selectedNode
@@ -83,17 +144,23 @@ export default function PropertiesPanel() {
       const result = await diacritize(selectedNode.text);
       pushHistory();
       update({ text: result.diacritized });
-      setStatus(`Tashkeel: ${(result.result_ratio * 100).toFixed(0)}% diacritized`);
+      setStatus(t(`Tashkeel: ${(result.result_ratio * 100).toFixed(0)}% diacritized`, `التشكيل: ${(result.result_ratio * 100).toFixed(0)}%`));
     } catch {
-      setStatus('Tashkeel failed');
+      setStatus(t('Tashkeel failed', 'فشل التشكيل'));
     }
   }, [selectedNode, update, setStatus, pushHistory]);
 
   // ── Seed Audition (uses /api/audition endpoint) ──
   const handleAudition = useCallback(async () => {
-    if (!selectedNode || auditioning) return;
+    if (!selectedNode) return;
+    if (previewAudioKeyRef.current === 'audition') {
+      stopManagedPreview();
+      setStatus(t('Seed preview stopped', 'تم إيقاف معاينة البذرة'));
+      return;
+    }
+    stopManagedPreview();
     setAuditioning(true);
-    setStatus('Auditioning seed...');
+    setStatus(t('Auditioning seed...', 'جارٍ معاينة البذرة...'));
     try {
       const result = await auditionApi({
         text: selectedNode.text.slice(0, 20) || '\u0645\u0631\u062D\u0628\u0627',
@@ -103,14 +170,27 @@ export default function PropertiesPanel() {
         autoTashkeel,
       });
       const audio = new Audio(result.url);
-      audio.play();
-      audio.onended = () => setAuditioning(false);
-      setStatus('Audition complete');
+      audio.__revokeUrl = result.url;
+      previewAudioRef.current = audio;
+      previewAudioKeyRef.current = 'audition';
+      audio.onended = () => {
+        if (previewAudioRef.current === audio) previewAudioRef.current = null;
+        previewAudioKeyRef.current = null;
+        setAuditioning(false);
+      };
+      audio.onerror = () => {
+        if (previewAudioRef.current === audio) previewAudioRef.current = null;
+        if (audio.__revokeUrl) URL.revokeObjectURL(audio.__revokeUrl);
+        previewAudioKeyRef.current = null;
+        setAuditioning(false);
+        setStatus(t('Seed preview failed', 'فشلت معاينة البذرة'));
+      };
+      await audio.play();
     } catch (err) {
-      setStatus(`Audition error: ${err.message}`);
+      setStatus(t(`Audition error: ${err.message}`, `خطأ في المعاينة: ${err.message}`));
       setAuditioning(false);
     }
-  }, [selectedNode, auditioning, autoTashkeel, setStatus]);
+  }, [selectedNode, autoTashkeel, setStatus, stopManagedPreview, t]);
 
   // ── Random seed ────────────────────────────────
   const randomizeSeed = useCallback(() => {
@@ -122,11 +202,11 @@ export default function PropertiesPanel() {
   const handleGenerate = useCallback(async () => {
     if (!selectedNode || generating) return;
     if (!selectedNode.text.trim()) {
-      setStatus('Add text to this node before generating.');
+      setStatus(t('Add text to this node before generating.', 'أضف نصاً لهذه العقدة قبل التوليد.'));
       return;
     }
     setGenerating(true);
-    setStatus('Generating audio for node...');
+    setStatus(t('Generating audio for node...', 'جارٍ توليد الصوت للعقدة...'));
     try {
       const result = await synthesizeApi({
         text: selectedNode.text,
@@ -148,30 +228,46 @@ export default function PropertiesPanel() {
       });
       setStatus(`Generated: ${result.duration.toFixed(2)}s (${result.genTime.toFixed(1)}s)`);
     } catch (err) {
-      setStatus(`Generate error: ${err.message}`);
+      setStatus(t(`Generate error: ${err.message}`, `خطأ في التوليد: ${err.message}`));
     } finally {
       setGenerating(false);
     }
-  }, [selectedNode, generating, autoTashkeel, update, pushHistory, setStatus]);
+  }, [selectedNode, generating, autoTashkeel, update, pushHistory, setStatus, t]);
 
   // ── Per-node Preview / Play (Item 5) ───────────
   const handlePreview = useCallback(async () => {
     if (!selectedNode?.audioUrl) return;
     try {
       const engine = getEngine();
-      await engine.playNode(selectedNode);
-      setStatus('Playing node...');
+      if (nodePreviewIdRef.current === selectedNode.id) {
+        stopNodePreview();
+        setStatus(t('Stopped node preview', 'تم إيقاف معاينة العقدة'));
+        return;
+      }
+      stopManagedPreview();
+      stopNodePreview();
+      await engine.playNode(selectedNode, {
+        onEnd: () => {
+          nodePreviewIdRef.current = null;
+          setPreviewingNode(false);
+        },
+      });
+      nodePreviewIdRef.current = selectedNode.id;
+      setPreviewingNode(true);
+      setStatus(t('Playing node...', 'جارٍ تشغيل العقدة...'));
     } catch (err) {
-      setStatus(`Play error: ${err.message}`);
+      nodePreviewIdRef.current = null;
+      setPreviewingNode(false);
+      setStatus(t(`Play error: ${err.message}`, `خطأ في التشغيل: ${err.message}`));
     }
-  }, [selectedNode, setStatus]);
+  }, [selectedNode, setStatus, stopManagedPreview, stopNodePreview, t]);
 
   // ── Remove node (Item 14) ─────────────────────
   const handleRemove = useCallback(() => {
     if (!selectedNode) return;
     pushHistory();
     removeNode(selectedNode.id);
-    setStatus('Node removed');
+    setStatus(t('Node removed', 'تمت إزالة العقدة'));
   }, [selectedNode, pushHistory, removeNode, setStatus]);
 
   // ── Duplicate node (Item 14) ──────────────────
@@ -179,7 +275,7 @@ export default function PropertiesPanel() {
     if (!selectedNode) return;
     pushHistory();
     duplicateSelected();
-    setStatus('Node duplicated');
+    setStatus(t('Node duplicated', 'تم نسخ العقدة'));
   }, [selectedNode, pushHistory, duplicateSelected, setStatus]);
 
   // ── Revert generation defaults (Item 13) ──────
@@ -187,7 +283,7 @@ export default function PropertiesPanel() {
     if (!selectedNode) return;
     pushHistory();
     update(NODE_GEN_DEFAULTS);
-    setStatus('Generation properties reverted');
+    setStatus(t('Generation properties reverted', 'تمت إعادة خصائص التوليد إلى الافتراضي'));
   }, [selectedNode, pushHistory, update, setStatus]);
 
   // ── Revert engine defaults (Item 13) ──────────
@@ -195,61 +291,198 @@ export default function PropertiesPanel() {
     if (!selectedNode) return;
     pushHistory();
     update(NODE_ENGINE_DEFAULTS);
-    setStatus('Engine properties reverted');
+    setStatus(t('Engine properties reverted', 'تمت إعادة خصائص المحرك إلى الافتراضي'));
   }, [selectedNode, pushHistory, update, setStatus]);
 
   // ── Recording ──────────────────────────────────
   const startRecording = async () => {
+    if (mediaRecorderRef.current?.state === 'recording') return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      streamRef.current = stream;
+      const mimeType = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+      ].find((m) => MediaRecorder.isTypeSupported(m)) || '';
+
+      mediaRecorderRef.current = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
       chunksRef.current = [];
       mediaRecorderRef.current.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
       mediaRecorderRef.current.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        // Always use .wav extension — backend re-encodes to PCM WAV regardless
-        const file = new File([blob], `rec_${Date.now()}.wav`, { type: 'audio/webm' });
-        try {
-          const res = await uploadVoice(file);
-          update({ voice: res.filename });
-          // Refresh voice list so the new voice appears in all dropdowns
-          const updated = await listVoices();
-          setVoices(updated);
-          setStatus(`Voice recorded and saved: ${res.filename}`);
-        } catch {
-          setStatus('Upload failed');
+        const blob = new Blob(chunksRef.current, { type: mediaRecorderRef.current?.mimeType || 'audio/webm' });
+        if (pendingRecordingUrl) URL.revokeObjectURL(pendingRecordingUrl);
+        setPendingRecordingBlob(blob);
+        setPendingRecordingUrl(URL.createObjectURL(blob));
+        if (!recordingName.trim()) {
+          setRecordingName(`voice_${Date.now()}`);
         }
+        setStatus(t('Recording stopped — preview and save your voice', 'تم إيقاف التسجيل — عاين صوتك ثم احفظه'));
         stream.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
       };
-      mediaRecorderRef.current.start();
+      mediaRecorderRef.current.start(250);
       setRecording(true);
+      setRecordingTime(0);
+      setStatus(t('Recording... speak naturally for 5–15 seconds', 'جارٍ التسجيل... تحدث بشكل طبيعي لمدة 5–15 ثانية'));
+
+      const startTime = Date.now();
+      timerRef.current = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        setRecordingTime(elapsed);
+        if (elapsed >= MAX_RECORDING_DURATION) {
+          if (mediaRecorderRef.current?.state === 'recording') {
+            mediaRecorderRef.current.stop();
+          }
+          setRecording(false);
+          setStatus(t('Recording stopped — preview and save your voice', 'تم إيقاف التسجيل — عاين صوتك ثم احفظه'));
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      }, 100);
     } catch {
-      setStatus('Microphone access denied');
+      setStatus(t('Microphone access denied', 'تم رفض إذن الميكروفون'));
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && recording) {
+    if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop();
       setRecording(false);
+      setStatus(t('Recording stopped — preview and save your voice', 'تم إيقاف التسجيل — عاين صوتك ثم احفظه'));
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     }
   };
+
+  const clearPendingRecording = useCallback(() => {
+    stopManagedPreview();
+    if (pendingRecordingUrl) {
+      URL.revokeObjectURL(pendingRecordingUrl);
+    }
+    setPendingRecordingBlob(null);
+    setPendingRecordingUrl(null);
+    setRecordingName('');
+    setRecordingTime(0);
+    setStatus(t('Recording cleared', 'تم مسح التسجيل'));
+  }, [pendingRecordingUrl, setStatus, stopManagedPreview, t]);
+
+  const playPendingRecording = useCallback(async () => {
+    if (!pendingRecordingUrl) return;
+    if (previewAudioKeyRef.current === 'pending-recording') {
+      stopManagedPreview();
+      setStatus(t('Recording preview stopped', 'تم إيقاف معاينة التسجيل'));
+      return;
+    }
+    stopManagedPreview();
+    setPreviewingPendingRecording(true);
+    try {
+      const audio = new Audio(pendingRecordingUrl);
+      previewAudioRef.current = audio;
+      previewAudioKeyRef.current = 'pending-recording';
+      audio.onended = () => {
+        if (previewAudioRef.current === audio) previewAudioRef.current = null;
+        previewAudioKeyRef.current = null;
+        setPreviewingPendingRecording(false);
+      };
+      audio.onerror = () => {
+        if (previewAudioRef.current === audio) previewAudioRef.current = null;
+        previewAudioKeyRef.current = null;
+        setPreviewingPendingRecording(false);
+        setStatus(t('Recording preview failed', 'فشلت معاينة التسجيل'));
+      };
+      await audio.play();
+      setStatus(t('Previewing recording...', 'جارٍ معاينة التسجيل...'));
+    } catch (err) {
+      previewAudioKeyRef.current = null;
+      setPreviewingPendingRecording(false);
+      setStatus(t(`Recording preview failed: ${err.message}`, `فشلت معاينة التسجيل: ${err.message}`));
+    }
+  }, [pendingRecordingUrl, setStatus, stopManagedPreview, t]);
+
+  const saveRecordedVoice = useCallback(async () => {
+    if (!pendingRecordingBlob) return;
+    try {
+      stopManagedPreview();
+      const safeName = recordingName.trim() || `voice_${Date.now()}`;
+      const wavFile = await blobToWavFile(pendingRecordingBlob, safeName);
+      const res = await uploadVoice(wavFile);
+      update({ voice: res.filename });
+      const updated = await listVoices();
+      setVoices(updated);
+      setPendingRecordingBlob(null);
+      if (pendingRecordingUrl) {
+        URL.revokeObjectURL(pendingRecordingUrl);
+        setPendingRecordingUrl(null);
+      }
+      setRecordingName('');
+      setRecordingTime(0);
+      setStatus(t(`Voice recorded and saved: ${res.filename}`, `تم تسجيل الصوت وحفظه: ${res.filename}`));
+    } catch (err) {
+      setStatus(t(`Upload failed: ${err.message || 'Unknown error'}`, `فشل الرفع: ${err.message || 'خطأ غير معروف'}`));
+    }
+  }, [pendingRecordingBlob, pendingRecordingUrl, recordingName, setStatus, setVoices, stopManagedPreview, t, update]);
+
+  const previewSelectedVoice = useCallback(async () => {
+    if (!selectedNode) return;
+    if (previewAudioKeyRef.current === 'voice') {
+      stopManagedPreview();
+      setStatus(t('Voice preview stopped', 'تم إيقاف معاينة الصوت'));
+      return;
+    }
+    stopManagedPreview();
+    setPreviewingVoice(true);
+    setStatus(t('Previewing selected voice...', 'جارٍ معاينة الصوت المحدد...'));
+    try {
+      const audio = new Audio(getVoicePreviewUrl(selectedNode.voice || 'default.wav'));
+      previewAudioRef.current = audio;
+      previewAudioKeyRef.current = 'voice';
+      audio.onended = () => {
+        if (previewAudioRef.current === audio) previewAudioRef.current = null;
+        previewAudioKeyRef.current = null;
+        setPreviewingVoice(false);
+      };
+      audio.onerror = () => {
+        if (previewAudioRef.current === audio) previewAudioRef.current = null;
+        previewAudioKeyRef.current = null;
+        setStatus(t('Voice preview failed', 'فشلت معاينة الصوت'));
+        setPreviewingVoice(false);
+      };
+      await audio.play();
+    } catch (err) {
+      previewAudioKeyRef.current = null;
+      setStatus(t(`Voice preview failed: ${err.message}`, `فشلت معاينة الصوت: ${err.message}`));
+      setPreviewingVoice(false);
+    }
+  }, [selectedNode, setStatus, stopManagedPreview, t]);
 
   // ── Upload voice file ──────────────────────────
   const handleVoiceUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     try {
-      const res = await uploadVoice(file);
-      update({ voice: res.filename });
-      // Refresh voice list so the new voice appears in all dropdowns
-      const updated = await listVoices();
-      setVoices(updated);
-      setStatus(`Voice uploaded: ${res.filename}`);
-    } catch {
-      setStatus('Upload failed');
+      if (pendingRecordingUrl) URL.revokeObjectURL(pendingRecordingUrl);
+      setPendingRecordingBlob(file);
+      setPendingRecordingUrl(URL.createObjectURL(file));
+      setRecordingName(file.name.replace(/\.[^.]+$/, ''));
+      setRecordingTime(0);
+      setStatus(t('Voice sample loaded — review and save it.', 'تم تحميل العينة — راجعها ثم احفظها.'));
+    } catch (err) {
+      setStatus(t(`Upload preparation failed: ${err.message || 'Unknown error'}`, `فشل تجهيز الرفع: ${err.message || 'خطأ غير معروف'}`));
     }
   };
 
@@ -261,8 +494,8 @@ export default function PropertiesPanel() {
   if (!selectedNode) {
     return (
       <div className="properties-panel collapsed">
-        <h3>Properties</h3>
-        <p className="hint">Select a note to edit</p>
+        <h3>{t('Properties', 'الخصائص')}</h3>
+        <p className="hint">{t('Select a note to edit', 'حدد نغمة للتحرير')}</p>
       </div>
     );
   }
@@ -275,13 +508,13 @@ export default function PropertiesPanel() {
         <h3>{noteName}</h3>
         <span className="node-type-badge">{selectedNode.nodeType || 'tts'}</span>
         <div className="panel-header-actions">
-          <button className="btn-icon" onClick={handlePreview} title="Preview node" disabled={!selectedNode.audioUrl}>
-            <Play size={14} strokeWidth={2} />
+          <button className="btn-icon" onClick={handlePreview} title={t('Preview node', 'معاينة العقدة')} disabled={!selectedNode.audioUrl}>
+            {previewingNode ? <Square size={14} strokeWidth={2} /> : <Play size={14} strokeWidth={2} />}
           </button>
-          <button className="btn-icon" onClick={handleDuplicate} title="Duplicate node (Ctrl+D)">
+          <button className="btn-icon" onClick={handleDuplicate} title={t('Duplicate node (Ctrl+D)', 'نسخ العقدة (Ctrl+D)')}>
             <Copy size={14} strokeWidth={1.5} />
           </button>
-          <button className="btn-icon danger" onClick={handleRemove} title="Remove node (Del)">
+          <button className="btn-icon danger" onClick={handleRemove} title={t('Remove node (Del)', 'إزالة العقدة (Del)')}>
             <Trash2 size={14} strokeWidth={1.5} />
           </button>
         </div>
@@ -291,13 +524,13 @@ export default function PropertiesPanel() {
       {selectedNode.nodeType === 'imported' ? (
         <div className="panel-group panel-group-import">
           <div className="panel-group-title import-title">
-            Imported Audio
+            {t('Imported Audio', 'صوت مستورد')}
           </div>
 
           {/* Waveform preview */}
           {selectedNode.waveformData && selectedNode.waveformData.length > 0 && (
             <div className="panel-section">
-              <label>Waveform</label>
+              <label>{t('Waveform', 'الموجة الصوتية')}</label>
               <canvas
                 ref={(canvas) => {
                   if (!canvas || !selectedNode.waveformData) return;
@@ -333,26 +566,26 @@ export default function PropertiesPanel() {
 
           {/* Filename */}
           <div className="panel-section">
-            <label>File</label>
-            <div className="import-filename">{selectedNode.text || '(unnamed)'}</div>
+            <label>{t('File', 'الملف')}</label>
+            <div className="import-filename">{selectedNode.text || t('(unnamed)', '(بدون اسم)')}</div>
           </div>
 
           {/* Duration info */}
           <div className="panel-section">
-            <label>Original Duration</label>
+            <label>{t('Original Duration', 'المدة الأصلية')}</label>
             <div className="import-filename">{(selectedNode.originalDuration || selectedNode.duration || 0).toFixed(2)}s</div>
           </div>
         </div>
       ) : (
         <div className="panel-group panel-group-gen">
           <div className="panel-group-title gen-title">
-            Generation Properties
+            {t('Generation Properties', 'خصائص التوليد')}
             <button className="btn-revert" onClick={handleRevertGen} title="Revert to defaults">
               <RotateCcw size={11} strokeWidth={2} />
             </button>
             {needsRegen && (
               <span className="regen-badge" title="Text/voice/speed/seed changed — re-generate needed">
-                <AlertTriangle size={12} strokeWidth={2} /> Re-gen needed
+                <AlertTriangle size={12} strokeWidth={2} /> {t('Re-gen needed', 'إعادة توليد مطلوبة')}
               </span>
             )}
           </div>
@@ -363,16 +596,16 @@ export default function PropertiesPanel() {
               className={`btn-generate ${generating ? 'generating' : ''}`}
               onClick={handleGenerate}
               disabled={generating || !selectedNode.text}
-              title="Generate audio for this node"
+              title={t('Generate audio for this node', 'توليد الصوت لهذه العقدة')}
             >
               <Zap size={14} strokeWidth={2} />
-              {generating ? 'Generating...' : 'Generate'}
+              {generating ? t('Generating...', 'جارٍ التوليد...') : t('Generate', 'توليد')}
             </button>
           </div>
 
           {/* Arabic Text (Item 4, 19: RTL + lang="ar") */}
           <div className="panel-section">
-            <label>Arabic Text</label>
+            <label>{t('Arabic Text', 'النص العربي')}</label>
             <textarea
               rows={3}
               value={selectedNode.text}
@@ -384,11 +617,11 @@ export default function PropertiesPanel() {
               className="arabic-input"
             />
             <div className="section-actions">
-              <button className="btn-haraka" onClick={handleTashkeel} title="Apply diacritics (auto-tashkeel)">
-                Tashkeel
+              <button className="btn-haraka" onClick={handleTashkeel} title={t('Apply diacritics (auto-tashkeel)', 'تطبيق التشكيل التلقائي')}>
+                {t('Tashkeel', 'تشكيل')}
               </button>
               {!hasDiacritics(selectedNode.text) && (
-                <span className="warning-badge">No diacritics</span>
+                <span className="warning-badge">{t('No diacritics', 'بدون تشكيل')}</span>
               )}
             </div>
           </div>
@@ -396,19 +629,19 @@ export default function PropertiesPanel() {
           {/* Phoneme Display */}
           {phonemes && (
             <div className="panel-section">
-              <label>Phonemes</label>
+              <label>{t('Phonemes', 'الفونيمات')}</label>
               <div className="phoneme-display">{phonemes}</div>
             </div>
           )}
 
           {/* Voice */}
           <div className="panel-section">
-            <label>Voice</label>
+            <label>{t('Voice', 'الصوت')}</label>
             <select
               value={selectedNode.voice || ''}
               onChange={(e) => update({ voice: e.target.value || null })}
             >
-              <option value="">Default</option>
+                <option value="">{t('Default Female', 'الافتراضي الأنثوي')}</option>
               {voices.map(v => (
                 <option key={v} value={v}>
                   {v.split(/[\\/]/).pop()}
@@ -417,44 +650,89 @@ export default function PropertiesPanel() {
             </select>
             <div className="section-actions">
               <label className="btn-sm upload-btn">
-                <Upload size={12} strokeWidth={1.5} /> Upload
+                <Upload size={12} strokeWidth={1.5} /> {t('Upload', 'رفع')}
                 <input type="file" accept="audio/*" hidden onChange={handleVoiceUpload} />
               </label>
               <button
                 className={`btn-sm ${recording ? 'recording' : ''}`}
                 onClick={recording ? stopRecording : startRecording}
               >
-                <Mic size={12} strokeWidth={1.5} /> {recording ? 'Stop' : 'Rec'}
+                {recording ? <Square size={12} strokeWidth={1.5} /> : <Mic size={12} strokeWidth={1.5} />} {recording ? t('Stop', 'إيقاف') : t('Rec', 'تسجيل')}
+              </button>
+              <button
+                className="btn-sm"
+                onClick={previewSelectedVoice}
+                title={t('Preview selected/default voice', 'معاينة الصوت المحدد/الافتراضي')}
+              >
+                {previewingVoice ? <Square size={12} strokeWidth={1.5} /> : <Play size={12} strokeWidth={1.5} />} {previewingVoice ? t('Stop', 'إيقاف') : t('Preview', 'معاينة')}
               </button>
             </div>
+
+            {recording && (
+              <div className="recording-indicator" style={{ marginTop: 8 }}>
+                <div className="recording-dot" />
+                <span>{t('Recording...', 'جارٍ التسجيل...')} {recordingTime.toFixed(1)}s / {MAX_RECORDING_DURATION}s</span>
+                <div className="recording-bar">
+                  <div
+                    className="recording-bar-fill"
+                    style={{ width: `${(recordingTime / MAX_RECORDING_DURATION) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {pendingRecordingBlob && (
+              <div className="panel-section" style={{ marginTop: 8 }}>
+                <label>{t('Recording Name', 'اسم التسجيل')}</label>
+                <input
+                  type="text"
+                  value={recordingName}
+                  onChange={(e) => setRecordingName(e.target.value)}
+                  placeholder={t('e.g. my_voice', 'مثال: صوتي')}
+                />
+                {pendingRecordingUrl && (
+                  <audio src={pendingRecordingUrl} controls style={{ width: '100%', marginTop: 6 }} />
+                )}
+                <div className="section-actions" style={{ marginTop: 6 }}>
+                  <button className="btn-sm" onClick={playPendingRecording}>
+                    {previewingPendingRecording ? <Square size={12} strokeWidth={1.5} /> : <Play size={12} strokeWidth={1.5} />} {previewingPendingRecording ? t('Stop Preview', 'إيقاف المعاينة') : t('Play Recording', 'تشغيل التسجيل')}
+                  </button>
+                  <button className="btn-sm" onClick={saveRecordedVoice}>
+                    <Upload size={12} strokeWidth={1.5} /> {t('Save Recording', 'حفظ التسجيل')}
+                  </button>
+                  <button className="btn-sm" onClick={clearPendingRecording}>
+                    <Trash2 size={12} strokeWidth={1.5} /> {t('Clear', 'مسح')}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Seed */}
           <div className="panel-section">
-            <label>Seed</label>
+            <label>{t('Seed', 'البذرة')}</label>
             <div className="seed-row">
               <input
                 type="number"
                 value={selectedNode.seed}
                 onChange={(e) => update({ seed: parseInt(e.target.value) || 0 })}
               />
-              <button className="btn-dice" onClick={randomizeSeed} title="Random seed">
+              <button className="btn-dice" onClick={randomizeSeed} title={t('Random seed', 'بذرة عشوائية')}>
                 <Dice5 size={16} strokeWidth={1.5} />
               </button>
               <button
                 className="btn-dice"
                 onClick={handleAudition}
-                disabled={auditioning}
-                title="Audition seed (quick preview)"
+                title={t('Audition seed (quick preview)', 'معاينة سريعة للبذرة')}
               >
-                <Play size={14} strokeWidth={2} />
+                {auditioning ? <Square size={14} strokeWidth={2} /> : <Play size={14} strokeWidth={2} />}
               </button>
             </div>
           </div>
 
           {/* Speed (generation-time property) */}
           <div className="panel-section">
-            <label>Speed: {(selectedNode.speed || 1).toFixed(2)}x</label>
+            <label>{t('Speed', 'السرعة')}: {(selectedNode.speed || 1).toFixed(2)}x</label>
             <input
               type="range"
               min="0.5"
@@ -468,7 +746,7 @@ export default function PropertiesPanel() {
 
           {/* Speaking Style Instruction (Item 18) */}
           <div className="panel-section">
-            <label>Speaking Style</label>
+            <label>{t('Speaking Style', 'أسلوب الإلقاء')}</label>
             <textarea
               rows={2}
               value={selectedNode.instruct || ''}
@@ -479,7 +757,7 @@ export default function PropertiesPanel() {
               dir="auto"
             />
             <div className="section-hint">
-              Controls tone, emotion, and pace. Leave empty for neutral.
+              {t('Controls tone, emotion, and pace. Leave empty for neutral.', 'يتحكم في النبرة والعاطفة والإيقاع. اتركه فارغاً للصوت المحايد.')}
             </div>
           </div>
         </div>
@@ -488,7 +766,7 @@ export default function PropertiesPanel() {
       {/* ═══════════ GROUP 2: Audio Engine Properties ═══════════ */}
       <div className="panel-group panel-group-engine">
         <div className="panel-group-title engine-title">
-          Audio Engine Properties
+          {t('Audio Engine Properties', 'خصائص محرك الصوت')}
           <button className="btn-revert" onClick={handleRevertEngine} title="Revert to defaults">
             <RotateCcw size={11} strokeWidth={2} />
           </button>
@@ -496,7 +774,7 @@ export default function PropertiesPanel() {
 
         {/* Pitch Shift */}
         <div className="panel-section">
-          <label>Pitch: {selectedNode.pitch_shift > 0 ? '+' : ''}{selectedNode.pitch_shift} st ({noteName})</label>
+          <label>{t('Pitch', 'الطبقة')}: {selectedNode.pitch_shift > 0 ? '+' : ''}{selectedNode.pitch_shift} st ({noteName})</label>
           <input
             type="range"
             min="-24"
@@ -510,7 +788,7 @@ export default function PropertiesPanel() {
 
         {/* Volume */}
         <div className="panel-section">
-          <label>Volume: {Math.round((selectedNode.volume ?? 1) * 100)}%</label>
+          <label>{t('Volume', 'مستوى الصوت')}: {Math.round((selectedNode.volume ?? 1) * 100)}%</label>
           <input
             type="range"
             min="0"
@@ -524,11 +802,11 @@ export default function PropertiesPanel() {
 
         {/* Per-node Pan */}
         <div className="panel-section">
-          <label>Pan: {
-            selectedNode.pan == null ? 'Track default'
-            : selectedNode.pan === 0 ? 'Center'
-            : selectedNode.pan > 0 ? `Right ${Math.round(selectedNode.pan * 100)}%`
-            : `Left ${Math.round(Math.abs(selectedNode.pan) * 100)}%`
+          <label>{t('Pan', 'التموضع')}: {
+            selectedNode.pan == null ? t('Track default', 'افتراضي المسار')
+            : selectedNode.pan === 0 ? t('Center', 'الوسط')
+            : selectedNode.pan > 0 ? t(`Right ${Math.round(selectedNode.pan * 100)}%`, `يمين ${Math.round(selectedNode.pan * 100)}%`)
+            : t(`Left ${Math.round(Math.abs(selectedNode.pan) * 100)}%`, `يسار ${Math.round(Math.abs(selectedNode.pan) * 100)}%`)
           }</label>
           <input
             type="range"
@@ -547,7 +825,7 @@ export default function PropertiesPanel() {
         {/* Fade In / Out */}
         <div className="panel-section fade-section">
           <div>
-            <label>Fade In: {(selectedNode.fade_in || 0).toFixed(1)}s</label>
+            <label>{t('Fade In', 'تلاشي الدخول')}: {(selectedNode.fade_in || 0).toFixed(1)}s</label>
             <input
               type="range"
               min="0"
@@ -558,7 +836,7 @@ export default function PropertiesPanel() {
             />
           </div>
           <div>
-            <label>Fade Out: {(selectedNode.fade_out || 0).toFixed(1)}s</label>
+            <label>{t('Fade Out', 'تلاشي الخروج')}: {(selectedNode.fade_out || 0).toFixed(1)}s</label>
             <input
               type="range"
               min="0"
@@ -572,7 +850,7 @@ export default function PropertiesPanel() {
 
         {/* Duration (editable) */}
         <div className="panel-section">
-          <label>Duration (s)</label>
+          <label>{t('Duration (s)', 'المدة (ث)')}</label>
           <input
             type="number"
             min="0.1"
@@ -585,14 +863,14 @@ export default function PropertiesPanel() {
                 update({ duration: v });
               }
             }}
-            placeholder="auto"
+            placeholder={t('auto', 'تلقائي')}
             style={{ width: '100%' }}
           />
         </div>
 
         {/* Engine Speed (Item 9) — syncs with timeline node width */}
         <div className="panel-section">
-          <label>Engine Speed: {(selectedNode.engineSpeed || 1).toFixed(2)}x</label>
+          <label>{t('Engine Speed', 'سرعة المحرك')}: {(selectedNode.engineSpeed || 1).toFixed(2)}x</label>
           <input
             type="range"
             min="0.25"
@@ -607,16 +885,16 @@ export default function PropertiesPanel() {
             }}
             style={{ accentColor: trackColor }}
           />
-          <div className="section-hint">Playback speed (stretch). 1.0 = original.</div>
+          <div className="section-hint">{t('Playback speed (stretch). 1.0 = original.', 'سرعة التشغيل (تمطيط). 1.0 = الأصلية.')}</div>
         </div>
       </div>
 
       {/* Keyboard shortcuts help */}
       <div className="panel-section shortcuts-hint">
-        <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo</span>
-        <span><kbd>Del</kbd> Remove</span>
-        <span><kbd>Ctrl</kbd>+<kbd>D</kbd> Duplicate</span>
-        <span><kbd>Space</kbd> Play/Pause</span>
+        <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> {t('Undo', 'تراجع')}</span>
+        <span><kbd>Del</kbd> {t('Remove', 'إزالة')}</span>
+        <span><kbd>Ctrl</kbd>+<kbd>D</kbd> {t('Duplicate', 'نسخ')}</span>
+        <span><kbd>Space</kbd> {t('Play/Pause', 'تشغيل/إيقاف')}</span>
       </div>
     </div>
   );

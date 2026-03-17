@@ -10,9 +10,13 @@ Built on Electron, React 18, FastAPI, CosyVoice 3, and the BayanSynthTTS Arabic 
 
 Download the latest release from the [Releases](https://github.com/Ramendan/BayanSynth-Studio/releases) page.
 
-Download **`BayanSynth-Studio-1.0.0-win-x64.7z`** from the release assets.
+Download one of the release assets:
 
-This bundles everything: Electron app, embedded Python 3.11, PyTorch (CUDA 12.8), and all model weights. No Python installation required. No internet needed after extraction.
+- `BayanSynth-Studio-<version>-win-x64.7z` (GPU/CUDA build)
+- `BayanSynth-Studio-<version>-win-x64-cpu.7z` (CPU-only build, smaller)
+- `BayanSynth-Studio-<version>-linux.AppImage` (portable Linux build)
+
+Each package bundles the Electron app, embedded Python 3.11, and required runtime dependencies. No Python installation is required. After extraction and first model setup, the app runs offline.
 
 1. Download `BayanSynth-Studio-1.0.0-win-x64.7z` into any folder
 2. Right-click it and extract with [7-Zip](https://7-zip.org)
@@ -178,7 +182,7 @@ Open **Settings** (gear icon):
 | **Default BPM** | Starting tempo for new projects. |
 | **Confirm before delete** | Shows a confirmation dialog before deleting a note. |
 | **Auto-Save** | Saves the project automatically every N minutes. |
-| **Language** | English (`en`) or Arabic (`ar`). |
+| **Language** | English (`en`) or Arabic (`ar`). UI labels translate; layout always left-to-right. |
 | **Theme** | Dark (default) or Light. |
 | **Export prefix** | String prepended to exported WAV filenames. |
 | **Voice Library folder** | Extra folder for `.wav`/`.mp3` voice reference files. |
@@ -234,13 +238,45 @@ Then compress `dist\win-unpacked\` with 7-Zip:
 "C:\Program Files\7-Zip\7z.exe" a -t7z -mx=5 dist\BayanSynth-Studio.7z dist\win-unpacked\*
 ```
 
-> **Tip:** Use `bundle_python.bat --cpu` for a smaller build without CUDA (~1.5 GB smaller). Synthesis will be slower.
+### Release build helpers
+
+Use the helper script to generate release-ready assets:
+
+```bat
+release_package.bat --gpu          &:: GPU/CUDA Windows package
+release_package.bat --cpu          &:: CPU-only Windows package
+release_package.bat --all          &:: both Windows variants
+release_package.bat --all --linux  &:: both Windows variants + Linux AppImage/tar.gz
+```
+
+The script creates versioned archives under `dist/`, including the dedicated CPU variant:
+
+- `BayanSynth-Studio-<version>-win-x64.7z`
+- `BayanSynth-Studio-<version>-win-x64-cpu.7z`
+
+Linux builds are produced by electron-builder and emitted under `dist/` as AppImage/tar.gz artifacts.
 
 Outputs to `dist/`:
 
 | File | What it is |
 |------|------------|
 | `BayanSynth-Studio-*.7z` | Full package with bundled Python (CUDA) |
+| `BayanSynth-Studio-*-cpu.7z` | CPU-only package (smaller, slower synthesis) |
+| `*.AppImage` / `*.tar.gz` | Portable Linux artifacts |
+
+---
+
+## Uninstall options
+
+Run `uninstall.bat` from the studio root to remove selected data:
+
+1. AI models (pretrained + checkpoints)
+2. Project files
+3. Settings/preferences
+4. Custom voices
+5. Everything above
+
+This script targets `%APPDATA%\bayansynth-studio\` and the local `voices/` folder.
 
 ---
 

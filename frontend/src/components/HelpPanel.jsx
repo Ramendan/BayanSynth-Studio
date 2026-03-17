@@ -9,6 +9,7 @@ import React from 'react';
 import { useAtom } from 'jotai';
 import { X } from 'lucide-react';
 import { helpOpenAtom } from '../store/atoms';
+import { useI18n } from '../utils/useI18n';
 
 const SHORTCUTS = [
   { keys: 'Space', action: 'Play / Pause' },
@@ -30,6 +31,7 @@ const SHORTCUTS = [
 ];
 
 export default function HelpPanel() {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useAtom(helpOpenAtom);
 
   if (!isOpen) return null;
@@ -46,7 +48,7 @@ export default function HelpPanel() {
 
         <div className="help-body">
           <section>
-            <h3>Keyboard Shortcuts</h3>
+            <h3>{t('Keyboard Shortcuts', 'اختصارات لوحة المفاتيح')}</h3>
             <table className="help-shortcuts">
               <tbody>
                 {SHORTCUTS.map(({ keys, action }) => (
@@ -59,7 +61,25 @@ export default function HelpPanel() {
                         </React.Fragment>
                       ))}
                     </td>
-                    <td>{action}</td>
+                    <td>{
+                      action === 'Play / Pause' ? t(action, 'تشغيل / إيقاف') :
+                      action === 'Arrow Tool (select & move)' ? t(action, 'أداة السهم (تحديد وتحريك)') :
+                      action === 'Pencil Tool (draw notes)' ? t(action, 'أداة القلم (رسم النغمات)') :
+                      action === 'Scissor Tool (split notes)' ? t(action, 'أداة المقص (تقسيم النغمات)') :
+                      action === 'Delete Tool (click to remove notes)' ? t(action, 'أداة الحذف (انقر للإزالة)') :
+                      action === 'Pan Tool (drag canvas)' ? t(action, 'أداة التحريك (سحب اللوحة)') :
+                      action === 'Undo' ? t(action, 'تراجع') :
+                      action === 'Redo' ? t(action, 'إعادة') :
+                      action === 'Save project' ? t(action, 'حفظ المشروع') :
+                      action === 'Open project' ? t(action, 'فتح المشروع') :
+                      action === 'Duplicate selected node(s)' ? t(action, 'نسخ العقد المحددة') :
+                      action === 'Remove selected node' ? t(action, 'إزالة العقدة المحددة') :
+                      action === 'Zoom in/out' ? t(action, 'تكبير/تصغير') :
+                      action === 'Horizontal scroll' ? t(action, 'تمرير أفقي') :
+                      action === 'Vertical scroll' ? t(action, 'تمرير عمودي') :
+                      action === 'Toggle this help panel' ? t(action, 'إظهار/إخفاء لوحة المساعدة') :
+                      action
+                    }</td>
                   </tr>
                 ))}
               </tbody>
@@ -67,7 +87,7 @@ export default function HelpPanel() {
           </section>
 
           <section>
-            <h3>Workflow</h3>
+            <h3>{t('Workflow', 'سير العمل')}</h3>
             <ol className="help-steps">
               <li>Select a <strong>track</strong> in the left panel by clicking its header.</li>
               <li>Switch to <strong>Pencil Tool (B)</strong> and click on the grid to add a note.</li>
@@ -81,7 +101,7 @@ export default function HelpPanel() {
           </section>
 
           <section>
-            <h3>Tips</h3>
+            <h3>{t('Tips', 'نصائح')}</h3>
             <ul className="help-tips">
               <li>Right-click a note to see the context menu (duplicate, delete, move to track).</li>
               <li>Drag the right edge of a note to stretch it — this adjusts engine speed for time-stretch.</li>

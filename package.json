@@ -11,6 +11,10 @@
     "dev:backend": "cd backend && python server.py",
     "build": "npm run build:frontend && electron-builder",
     "build:frontend": "cd frontend && npm run build",
+    "build:release": "release_package.bat --all",
+    "build:release:cpu": "release_package.bat --cpu",
+    "build:release:gpu": "release_package.bat --gpu",
+    "build:release:all": "release_package.bat --all --linux",
     "postinstall": "cd frontend && npm install"
   },
   "devDependencies": {

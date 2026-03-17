@@ -160,6 +160,7 @@ export const dragGhostAtom = atom(null);
 export const settingsOpenAtom = atom(false);
 export const toastsAtom = atom([]);
 export const showPitCurveAtom = atom(true);  // show pitch automation overlay on timeline tiles
+export const paramRelativeViewAtom = atom(false); // false = timeline/global, true = selected-node relative
 
 // ── Project Tracking ────────────────────────────────────────────
 export const projectNameAtom = atom('Untitled');
@@ -185,6 +186,7 @@ const _defaults = {
   autoTashkeel: true,            // auto-diacritize Arabic text before synthesis
   defaultBpm: 120,               // BPM used when creating a new project
   confirmDelete: true,           // confirm prompt before deleting a node
+    fontSize: 14,                  // UI base font size in px (12–20)
 };
 export const settingsAtom = atom({
   ..._defaults,
@@ -228,10 +230,33 @@ export const updateNodeAtom = atom(null, (get, set, { id, ...updates }) => {
 });
 
 export const removeNodeAtom = atom(null, (get, set, id) => {
-  set(tracksAtom, get(tracksAtom).map(t => ({
-    ...t,
-    nodes: t.nodes.filter(n => n.id !== id),
-  })));
+  let fallbackSelection = null;
+  const nextTracks = get(tracksAtom).map(t => {
+    const idx = t.nodes.findIndex(n => n.id === id);
+    if (idx === -1) return t;
+
+    const nextNodes = t.nodes.filter(n => n.id !== id);
+    if (nextNodes.length > 0) {
+      const neighborIdx = Math.min(idx, nextNodes.length - 1);
+      fallbackSelection = nextNodes[neighborIdx].id;
+    }
+
+    return {
+      ...t,
+      nodes: nextNodes,
+    };
+  });
+
+  set(tracksAtom, nextTracks);
+
+  const selectedIds = new Set(get(selectedNodeIdsAtom));
+  if (selectedIds.has(id)) {
+    selectedIds.delete(id);
+    if (selectedIds.size === 0 && fallbackSelection) {
+      selectedIds.add(fallbackSelection);
+    }
+    set(selectedNodeIdsAtom, selectedIds);
+  }
 });
 
 export const addNodeAtom = atom(null, (get, set, { trackId, text, overrides }) => {
@@ -295,6 +320,7 @@ export const moveNodeToTrackAtom = atom(null, (get, set, { nodeId, targetTrackId
 });
 
 export const splitNodeAtom = atom(null, (get, set, { nodeId, splitTime }) => {
+  let rightNodeId = null;
   set(tracksAtom, get(tracksAtom).map(t => {
     const idx = t.nodes.findIndex(n => n.id === nodeId);
     if (idx === -1) return t;
@@ -338,11 +364,17 @@ export const splitNodeAtom = atom(null, (get, set, { nodeId, splitTime }) => {
       phonemes: node.phonemes,
       generationHash: node.generationHash,
     });
+    rightNodeId = rightNode.id;
 
     const newNodes = [...t.nodes];
     newNodes.splice(idx, 1, leftNode, rightNode);
     return { ...t, nodes: newNodes };
   }));
+
+  // Keep editing flow continuous: after split, select the newly created right segment.
+  if (rightNodeId && get(selectedNodeIdAtom) === nodeId) {
+    set(selectedNodeIdAtom, rightNodeId);
+  }
 });
 
 export const duplicateSelectedAtom = atom(null, (get, set) => {

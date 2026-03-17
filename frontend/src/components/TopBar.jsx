@@ -20,10 +20,12 @@ import {
 import { voiceCloneOpenAtom } from './VoiceClonePanel';
 import { saveProjectAtom, openProjectAtom } from '../store/project';
 import { SNAP_DIVISIONS } from '../utils/constants';
+import { useI18n } from '../utils/useI18n';
 
 const ICO = { size: 14, strokeWidth: 1.5 };
 
 export default function TopBar({ onSynthesizeAll, onExport, onImportAudio }) {
+  const { t } = useI18n();
   const [bpm, setBpm] = useAtom(bpmAtom);
   const [snap, setSnap] = useAtom(snapDivisionAtom);
   const [autoTashkeel, setAutoTashkeel] = useAtom(autoTashkeelAtom);
@@ -49,17 +51,16 @@ export default function TopBar({ onSynthesizeAll, onExport, onImportAudio }) {
     const file = e.target.files[0];
     if (!file) return;
     if (onImportAudio) onImportAudio(file);
-    // Reset so same file can be re-imported
     e.target.value = '';
   };
 
   const toggleEndMarker = () => {
     if (endNodeTime != null) {
       setEndNodeTime(null);
-      setStatus('End marker removed');
+      setStatus(t('End marker removed', 'تمت إزالة علامة النهاية'));
     } else {
       setEndNodeTime(10);
-      setStatus('End marker set at 10s — drag on ruler to adjust');
+      setStatus(t('End marker set at 10s — drag on ruler to adjust', 'تم ضبط علامة النهاية عند 10 ثوانٍ — اسحبها من المسطرة للتعديل'));
     }
   };
 
@@ -73,7 +74,7 @@ export default function TopBar({ onSynthesizeAll, onExport, onImportAudio }) {
       <div className="topbar-controls">
         {/* BPM */}
         <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-dim)' }}>
-          BPM
+          {t('BPM', 'السرعة')}
           <input
             className="bpm-input"
             type="number"
@@ -86,7 +87,7 @@ export default function TopBar({ onSynthesizeAll, onExport, onImportAudio }) {
 
         {/* Snap Division */}
         <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-dim)' }}>
-          Snap
+          {t('Snap', 'الالتقاط')}
           <select
             className="snap-select"
             value={snap}
@@ -105,29 +106,29 @@ export default function TopBar({ onSynthesizeAll, onExport, onImportAudio }) {
             checked={autoTashkeel}
             onChange={(e) => setAutoTashkeel(e.target.checked)}
           />
-          Auto-Tashkeel
+          {t('Auto-Tashkeel', 'التشكيل التلقائي')}
         </label>
       </div>
 
       <div className="topbar-actions">
         {/* Project Save/Load */}
-        <button className="btn btn-sm" onClick={openProject} title="Open Project (Ctrl+O)">
-          <FolderOpen {...ICO} /> Open
+        <button className="btn btn-sm" onClick={openProject} title={t('Open Project (Ctrl+O)', 'فتح المشروع (Ctrl+O)')}>
+          <FolderOpen {...ICO} /> {t('Open', 'فتح')}
         </button>
-        <button className="btn btn-sm" onClick={saveProject} title="Save Project (Ctrl+S)">
-          <Save {...ICO} /> Save
+        <button className="btn btn-sm" onClick={saveProject} title={t('Save Project (Ctrl+S)', 'حفظ المشروع (Ctrl+S)')}>
+          <Save {...ICO} /> {t('Save', 'حفظ')}
         </button>
 
         <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
 
         {/* Track & Synthesis */}
         <button className="btn btn-sm" onClick={() => addTrack()}>
-          <Plus {...ICO} /> Track
+          <Plus {...ICO} /> {t('Track', 'مسار')}
         </button>
 
         {/* Import Audio */}
-        <button className="btn btn-sm" onClick={handleImportClick} title="Import audio file (Item 9)">
-          <FileAudio {...ICO} /> Import
+        <button className="btn btn-sm" onClick={handleImportClick} title={t('Import audio file', 'استيراد ملف صوتي')}>
+          <FileAudio {...ICO} /> {t('Import', 'استيراد')}
         </button>
         <input
           ref={fileInputRef}
@@ -138,17 +139,17 @@ export default function TopBar({ onSynthesizeAll, onExport, onImportAudio }) {
         />
 
         {/* Voice Cloning */}
-        <button className="btn btn-sm" onClick={() => setVoiceCloneOpen(true)} title="Voice Cloning">
-          <Mic {...ICO} /> Clone Voice
+        <button className="btn btn-sm" onClick={() => setVoiceCloneOpen(true)} title={t('Voice Cloning', 'استنساخ الصوت')}>
+          <Mic {...ICO} /> {t('Clone Voice', 'استنساخ صوت')}
         </button>
 
         {/* End Marker toggle */}
         <button
           className={`btn btn-sm ${endNodeTime != null ? 'btn-active-toggle' : ''}`}
           onClick={toggleEndMarker}
-          title="Toggle end marker"
+          title={t('Toggle end marker', 'تفعيل/تعطيل علامة النهاية')}
         >
-          <FlagTriangleRight {...ICO} /> End
+          <FlagTriangleRight {...ICO} /> {t('End', 'نهاية')}
         </button>
 
         <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
@@ -158,25 +159,24 @@ export default function TopBar({ onSynthesizeAll, onExport, onImportAudio }) {
           onClick={onSynthesizeAll}
           disabled={generating}
         >
-          <Wand2 {...ICO} /> Generate All
+          <Wand2 {...ICO} /> {t('Generate All', 'توليد الكل')}
         </button>
         <button
           className="btn btn-sm btn-primary"
           onClick={onExport}
           disabled={generating}
         >
-          <Download {...ICO} /> Export WAV
+          <Download {...ICO} /> {t('Export WAV', 'تصدير WAV')}
         </button>
-
         <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
 
         {/* Help */}
-        <button className="btn btn-sm" onClick={() => setHelpOpen(true)} title="Keyboard shortcuts & help (?)">
+        <button className="btn btn-sm" onClick={() => setHelpOpen(true)} title={t('Keyboard shortcuts & help (?)', 'اختصارات لوحة المفاتيح والمساعدة (?)')}>
           <HelpCircle {...ICO} />
         </button>
 
         {/* Settings (Item 23) */}
-        <button className="btn btn-sm" onClick={() => setSettingsOpen(true)} title="Settings">
+        <button className="btn btn-sm" onClick={() => setSettingsOpen(true)} title={t('Settings', 'الإعدادات')}>
           <Settings {...ICO} />
         </button>
       </div>

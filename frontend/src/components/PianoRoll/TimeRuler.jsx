@@ -8,10 +8,13 @@
 import React, { useMemo } from 'react';
 import { Group, Rect, Text, Line } from 'react-konva';
 import { PIXELS_PER_BEAT, beatToTime } from '../../utils/constants';
+import { getThemeColors } from '../../utils/themeColors';
 
 const RULER_H = 36;
 
-export default function TimeRuler({ width, bpm = 120, zoom = 1, panX = 0, snapDivision = '1/4', onSeek }) {
+export default function TimeRuler({ width, bpm = 120, zoom = 1, panX = 0, snapDivision = '1/4', onSeek, theme = 'dark' }) {
+  const colors = getThemeColors(theme);
+
   const ppb = PIXELS_PER_BEAT * zoom;
 
   const lines = useMemo(() => {
@@ -31,9 +34,10 @@ export default function TimeRuler({ width, bpm = 120, zoom = 1, panX = 0, snapDi
       if (snapDivision === '1/16' || snapDivision === '1/8') {
         const sub = snapDivision === '1/16' ? 4 : 2;
         for (let s = 1; s < sub; s++) {
-          const subX = x + (s / sub) * ppb;
+          const subBeat = beat + s / sub;
+          const subX = subBeat * ppb - panX;
           if (subX >= 0 && subX <= width) {
-            result.push({ beat: beat + s / sub, x: subX, isBar: false, isSub: true, time: beatToTime(beat + s / sub, bpm) });
+            result.push({ beat: subBeat, x: subX, isBar: false, isSub: true, time: beatToTime(subBeat, bpm) });
           }
         }
       }
@@ -47,8 +51,7 @@ export default function TimeRuler({ width, bpm = 120, zoom = 1, panX = 0, snapDi
     if (!onSeek) return;
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
-    // Subtract PIANO_KEY_WIDTH offset that the parent Group adds
-    const localX = pos.x - 60; // PIANO_KEY_WIDTH = 60
+    const localX = pos.x;
     const beats = (localX + panX) / ppb;
     const timeSec = beatToTime(beats, bpm);
     onSeek(Math.max(0, timeSec));
@@ -57,7 +60,7 @@ export default function TimeRuler({ width, bpm = 120, zoom = 1, panX = 0, snapDi
   return (
     <Group>
       {/* Background */}
-      <Rect x={0} y={0} width={width} height={RULER_H} fill="#111115" onClick={handleClick} />
+        <Rect x={0} y={0} width={width} height={RULER_H} fill={colors.rulerBg} onClick={handleClick} />
 
       {lines.map((line, i) => {
         if (line.isSub) {
@@ -65,7 +68,7 @@ export default function TimeRuler({ width, bpm = 120, zoom = 1, panX = 0, snapDi
             <Line
               key={`sub_${i}`}
               points={[line.x, RULER_H - 6, line.x, RULER_H]}
-              stroke="#2a2a3c"
+                stroke={colors.rulerTickMinor}
               strokeWidth={0.5}
               listening={false}
             />
@@ -80,7 +83,7 @@ export default function TimeRuler({ width, bpm = 120, zoom = 1, panX = 0, snapDi
                 line.x, line.isBar ? 2 : RULER_H - 12,
                 line.x, RULER_H,
               ]}
-              stroke={line.isBar ? '#4a4a5c' : '#2a2a3c'}
+                stroke={line.isBar ? colors.rulerTickMajor : colors.rulerTickMinor}
               strokeWidth={line.isBar ? 1 : 0.5}
               listening={false}
             />
@@ -91,7 +94,7 @@ export default function TimeRuler({ width, bpm = 120, zoom = 1, panX = 0, snapDi
                 x={line.x + 4}
                 y={3}
                 text={`${Math.floor(line.beat / 4) + 1}`}
-                fill="#888898"
+                  fill={colors.rulerText}
                 fontSize={11}
                 fontFamily="Consolas, SF Mono, monospace"
                 fontStyle="bold"
@@ -105,7 +108,7 @@ export default function TimeRuler({ width, bpm = 120, zoom = 1, panX = 0, snapDi
                 x={line.x + 4}
                 y={15}
                 text={`${line.time.toFixed(1)}s`}
-                fill="#4a4a58"
+                  fill={colors.rulerTextDim}
                 fontSize={9}
                 fontFamily="Consolas, SF Mono, monospace"
                 listening={false}
@@ -118,7 +121,7 @@ export default function TimeRuler({ width, bpm = 120, zoom = 1, panX = 0, snapDi
       {/* Bottom border */}
       <Line
         points={[0, RULER_H, width, RULER_H]}
-        stroke="#2a2a3c"
+          stroke={colors.rulerBorder}
         strokeWidth={1}
         listening={false}
       />

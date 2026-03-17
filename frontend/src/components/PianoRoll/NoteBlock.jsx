@@ -19,12 +19,10 @@ const HANDLE_WIDTH = 8;
 const TEXT_RATIO = 0.2;      // top 20% for text
 const WAVE_RATIO = 0.8;      // bottom 80% for waveform
 
-// Badge colours (match EffectsLane / VibLane)
+// Badge colours (match parameter lanes)
 const BADGE = {
-  reverb:  '#00f0ff',
-  delay:   '#ff2dcc',
-  chorus:  '#a855f7',
-  eq:      '#ffd700',
+  fx:      '#ffd700',
+  dyn:     '#00b7ff',
   vib:     '#a855f7',
   trans:   '#22c55e',
 };
@@ -55,20 +53,24 @@ export default function NoteBlock({
   const waveHeight = noteHeight * WAVE_RATIO;
   const clampedWidth = Math.max(noteWidth, 20);
 
+  const hasFx = !!(
+    node.effects?.reverb?.enabled ||
+    node.effects?.delay?.enabled ||
+    node.effects?.chorus?.enabled ||
+    node.effects?.eq?.enabled
+  );
+  const hasDyn = (node.automationDYN?.length ?? 0) > 0 || (node.dynFloor ?? 0) > 0 || (node.dynCeil ?? 1) !== 1;
+  const hasVib   = (node.automationVIB?.depth ?? 0) > 0;
+  const hasTrans = !!(node.transition && node.transition.type !== 'none');
+
   // ── Badge data ──────────────────────────────────────────────
   const badges = useMemo(() => {
     const list = [];
-    // Effects — one dot per enabled effect
-    const fx = node.effects;
-    if (fx?.reverb?.enabled)  list.push({ key: 'reverb',  color: BADGE.reverb,  label: 'R' });
-    if (fx?.delay?.enabled)   list.push({ key: 'delay',   color: BADGE.delay,   label: 'D' });
-    if (fx?.chorus?.enabled)  list.push({ key: 'chorus',  color: BADGE.chorus,  label: 'C' });
-    if (fx?.eq?.enabled)      list.push({ key: 'eq',      color: BADGE.eq,      label: 'E' });
+    if (hasFx) list.push({ key: 'fx', color: BADGE.fx, label: 'FX' });
+    if (hasDyn) list.push({ key: 'dyn', color: BADGE.dyn, label: 'DYN' });
+    if (hasTrans) list.push({ key: 'trans', color: BADGE.trans, label: 'TR' });
     return list;
-  }, [node.effects]);
-
-  const hasVib   = (node.automationVIB?.depth ?? 0) > 0;
-  const hasTrans = !!(node.transition && node.transition.type !== 'none');
+  }, [hasDyn, hasFx, hasTrans]);
 
   // Tiny sine-wave points for vibrato badge (drawn in text band)
   const vibWavePoints = useMemo(() => {
@@ -135,17 +137,33 @@ export default function NoteBlock({
       onClick={handleClick}
       onTap={handleClick}
     >
+      {selected && (
+        <Rect
+          x={-2}
+          y={-2}
+          width={clampedWidth + 4}
+          height={noteHeight + 4}
+          stroke="#ffffffcc"
+          strokeWidth={1.5}
+          cornerRadius={6}
+          shadowColor={color}
+          shadowBlur={20}
+          shadowOpacity={0.45}
+          listening={false}
+        />
+      )}
+
       {/* Main body */}
       <Rect
         width={clampedWidth}
         height={noteHeight}
-        fill={color + (selected ? 'cc' : '88')}
+        fill={color + (selected ? 'ee' : '88')}
         cornerRadius={4}
         stroke={selected ? color : 'transparent'}
-        strokeWidth={selected ? 2 : 0}
+        strokeWidth={selected ? 3 : 0}
         shadowColor={selected ? color : 'transparent'}
-        shadowBlur={selected ? 15 : 0}
-        shadowOpacity={selected ? 0.8 : 0}
+        shadowBlur={selected ? 24 : 0}
+        shadowOpacity={selected ? 0.95 : 0}
       />
 
       {/* Text band (top 20%) */}
@@ -233,27 +251,37 @@ export default function NoteBlock({
         <Group listening={false}>
           {/* Effect dots: up to 4 small circles, right-to-left from right edge */}
           {badges.map((b, i) => {
-            const cx = clampedWidth - 6 - i * 10;
+            const cx = clampedWidth - 8 - i * 18;
             const cy = textHeight / 2;
-            if (cx < 16) return null;
+            if (cx < 22) return null;
             return (
-              <Circle
-                key={b.key}
-                x={cx}
-                y={cy}
-                radius={3.5}
-                fill={b.color}
-                shadowColor={b.color}
-                shadowBlur={4}
-                shadowOpacity={0.8}
-                listening={false}
-              />
+              <Group key={b.key} listening={false}>
+                <Circle
+                  x={cx}
+                  y={cy}
+                  radius={6.2}
+                  fill={b.color}
+                  shadowColor={b.color}
+                  shadowBlur={6}
+                  shadowOpacity={0.85}
+                />
+                <Text
+                  x={cx - 9}
+                  y={cy - 4}
+                  width={18}
+                  align="center"
+                  text={b.label}
+                  fill="#0a0a12"
+                  fontSize={5.5}
+                  fontStyle="bold"
+                />
+              </Group>
             );
           })}
 
           {/* Vibrato mini sine wave */}
           {hasVib && vibWavePoints && (() => {
-            const rightOffset = 6 + badges.length * 10;
+            const rightOffset = 10 + badges.length * 18;
             const x0 = clampedWidth - rightOffset - 24;
             if (x0 < 6) return null;
             return (

@@ -98,13 +98,17 @@ function startBackend() {
   const studioRoot = path.join(__dirname, '..');
 
   let pythonPath;
-  if (isDev) {
-    // 1. Studio-local venv (created by setup.bat)
-    const localVenv = path.join(studioRoot, '.venv', 'Scripts', 'python.exe');
-    // 2. Repo-level venv (default in-repo layout)
+  const envPython = process.env.PYTHON_EXECUTABLE;
+  if (envPython && fs.existsSync(envPython)) {
+    pythonPath = envPython;
+  }
+  if (!pythonPath && isDev) {
+    // 1. Repo-level venv (default in-repo layout)
     const repoVenv  = path.join(studioRoot, '..', '..', '.venv', 'Scripts', 'python.exe');
-    pythonPath = fs.existsSync(localVenv) ? localVenv : repoVenv;
-  } else {
+    // 2. Studio-local venv (created by setup.bat)
+    const localVenv = path.join(studioRoot, '.venv', 'Scripts', 'python.exe');
+    pythonPath = fs.existsSync(repoVenv) ? repoVenv : localVenv;
+  } else if (!pythonPath) {
     // Packaged app: try several locations for a working Python.
     const embedPy   = path.join(process.resourcesPath, 'backend', 'python_embed', 'python.exe');
     const bundled   = path.join(process.resourcesPath, 'backend', 'python.exe');
@@ -140,11 +144,9 @@ function startBackend() {
     env: {
       ...process.env,
       PYTHONIOENCODING: 'utf-8',
-      // In the packaged app there is no BayanSynthTTS/ folder on the PATH -
-      // tell the backend to use the standard userData directory so models
-      // persist across updates and are always in a writable location.
-      // In dev mode we let server.py walk up and find BayanSynthTTS/ itself.
-      ...(!isDev ? { BAYANSYNTH_ROOT: app.getPath('userData') } : {}),
+      // Use the same writable per-user model location in BOTH dev and packaged
+      // modes so existing AppData models are always discovered.
+      BAYANSYNTH_ROOT: app.getPath('userData'),
     },
     stdio: ['pipe', 'pipe', 'pipe'],
   });

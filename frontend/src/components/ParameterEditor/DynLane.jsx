@@ -16,13 +16,16 @@ import {
   tracksAtom,
   selectedNodeIdAtom,
   updateNodeAtom,
+  bpmAtom,
 } from '../../store/atoms';
 import { pushHistoryAtom } from '../../store/history';
+import { PIXELS_PER_BEAT } from '../../utils/constants';
 const LANE_HEIGHT = 120;
 
-export default function DynLane({ width = 800, zoom = 1, panX = 0, offsetX = 0, playhead = 0 }) {
+export default function DynLane({ width = 800, zoom = 1, panX = 0, offsetX = 0, playhead = 0, relativeView = false }) {
   const tracks = useAtomValue(tracksAtom);
   const selectedNodeId = useAtomValue(selectedNodeIdAtom);
+  const bpm = useAtomValue(bpmAtom);
   const updateNode = useSetAtom(updateNodeAtom);
   const pushHistory = useSetAtom(pushHistoryAtom);
   const isDrawing = useRef(false);
@@ -47,14 +50,19 @@ export default function DynLane({ width = 800, zoom = 1, panX = 0, offsetX = 0, 
   const nodeStart    = selectedNode?.start_time ?? 0;
   const nodeDuration = selectedNode?.duration || 4;
 
-  const timeToX = useCallback(
-    (time) => ((time - nodeStart) / nodeDuration) * width,
-    [nodeStart, nodeDuration, width]
-  );
-  const xToTime = useCallback(
-    (x) => nodeStart + (x / width) * nodeDuration,
-    [nodeStart, nodeDuration, width]
-  );
+  const timeToX = useCallback((time) => {
+    if (relativeView) {
+      return ((time - nodeStart) / nodeDuration) * width;
+    }
+    return (time * bpm / 60) * PIXELS_PER_BEAT * zoom - panX;
+  }, [relativeView, nodeStart, nodeDuration, width, bpm, zoom, panX]);
+
+  const xToTime = useCallback((x) => {
+    if (relativeView) {
+      return nodeStart + (x / width) * nodeDuration;
+    }
+    return ((x + panX) / (PIXELS_PER_BEAT * zoom)) * (60 / bpm);
+  }, [relativeView, nodeStart, nodeDuration, width, panX, zoom, bpm]);
 
   const valueToY = (v) => LANE_HEIGHT * (1 - Math.max(0, Math.min(1, v)));
   // With snap-to-zero: anything within 8px of the bottom snaps to exactly 0

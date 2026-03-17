@@ -1,0 +1,38 @@
+# BayanSynthTTS — Python dependencies
+# Install: pip install -r requirements.txt
+# Or:      pip install -e .   (uses pyproject.toml)
+
+# ── Core inference ──────────────────────────────────────────────────────────
+numpy>=1.24
+torch>=2.0
+torchaudio>=2.0
+soundfile>=0.12
+PyYAML>=6.0
+
+# ── Arabic TTS engine ───────────────────────────────────────────────────────
+peft>=0.7                  # LoRA injection
+transformers>=4.40
+huggingface_hub<1.0        # ⚠ pinned — do NOT upgrade to >=1.0
+omegaconf>=2.3
+hyperpyyaml
+
+# ── Arabic diacritization (tashkeel) ───────────────────────────────────────
+mishkal                    # Rule-based (always required, zero GPU overhead)
+# tashkeel                 # Neural upgrade (optional, GPU recommended)
+# pip install tashkeel
+
+# ── Optional: audio format conversion ──────────────────────────────────────
+# For mp3/m4a/ogg input, install ffmpeg:
+#   Windows: winget install ffmpeg   OR   choco install ffmpeg
+#   Linux:   sudo apt install ffmpeg
+#   macOS:   brew install ffmpeg
+
+# ── Optional: Gradio UI ─────────────────────────────────────────────────────
+gradio>=4.0
+
+# ── CosyVoice3 engine deps (cosyvoice + matcha vendored in this repo) ────────
+# The cosyvoice/ and matcha/ packages are bundled directly in this repo.
+# Additional runtime dependencies they require:
+einops>=0.6          # used by cosyvoice flow/hifigan
+scipy>=1.10          # used by cosyvoice hifigan
+onnxruntime>=1.18    # ONNX speaker encoder / speech tokenizer

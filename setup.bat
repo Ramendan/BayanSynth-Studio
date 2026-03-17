@@ -20,23 +20,89 @@
 
 setlocal EnableDelayedExpansion
 set "STUDIO=%~dp0"
-set "COSYVOICE_REPO=%~1"
-set "BAYAN_REPO=%~2"
+set "COSYVOICE_REPO="
+set "BAYAN_REPO="
 set "SKIP_DOWNLOAD=0"
+set "AUTO_CONFIRM=0"
 
-:: Check for --skip-download flag
-if "%~1"=="--skip-download" (
+:: Parse args in any order:
+::   --skip-download, --yes/--run, <cosyvoice_repo>, <bayansynth_repo>
+:parse_args
+if "%~1"=="" goto :after_args
+if /i "%~1"=="--skip-download" (
     set "SKIP_DOWNLOAD=1"
-    set "COSYVOICE_REPO="
-    set "BAYAN_REPO="
+    shift
+    goto :parse_args
 )
-if "%~2"=="--skip-download" set "SKIP_DOWNLOAD=1"
+if /i "%~1"=="--yes" (
+    set "AUTO_CONFIRM=1"
+    shift
+    goto :parse_args
+)
+if /i "%~1"=="--run" (
+    set "AUTO_CONFIRM=1"
+    shift
+    goto :parse_args
+)
+if /i "%~1"=="--help" goto :usage
+if /i "%~1"=="-h" goto :usage
+
+:: Common accidental launcher arg when clicking file links in chat/tools.
+if /i "%~1"=="#file:setup.bat" (
+    echo [Setup] Detected accidental launcher argument: %~1
+    echo [Setup] No changes were made.
+    goto :usage
+)
+
+if not defined COSYVOICE_REPO (
+    set "COSYVOICE_REPO=%~1"
+    shift
+    goto :parse_args
+)
+if not defined BAYAN_REPO (
+    set "BAYAN_REPO=%~1"
+    shift
+    goto :parse_args
+)
+
+echo [Setup] ERROR: Unexpected extra argument: %~1
+echo.
+goto :usage_error
+
+:after_args
+
+if "%AUTO_CONFIRM%" NEQ "1" (
+    echo.
+    echo [Setup] Safety lock: setup does NOT run on plain click anymore.
+    echo [Setup] No changes were made.
+    echo.
+    echo [Setup] Run intentionally with:
+    echo         setup.bat --yes [--skip-download] [COSYVOICE_REPO] [BAYAN_REPO]
+    echo.
+    exit /b 0
+)
 
 echo.
 echo +==============================================+
 echo ^|          BayanSynth Studio - Setup          ^|
 echo +==============================================+
 echo.
+
+if not exist "%STUDIO%backend\requirements.txt" (
+    echo [Setup] ERROR: Missing backend\requirements.txt
+    echo         Run this from demos\studio\setup.bat inside the repo.
+    pause & exit /b 1
+)
+if not exist "%STUDIO%bundle_deps.bat" (
+    echo [Setup] ERROR: Missing bundle_deps.bat in %STUDIO%
+    pause & exit /b 1
+)
+if not exist "%STUDIO%backend\download_models.py" (
+    echo [Setup] ERROR: Missing backend\download_models.py
+    pause & exit /b 1
+)
+
+echo [Setup] Auto-confirm enabled via --yes.
 
 :: -- Check Python --
 python --version > nul 2>&1
@@ -104,3 +170,20 @@ echo ^|  Launch:  double-click start_studio.bat     ^|
 echo +==============================================+
 echo.
 pause
+
+:usage
+echo Usage:
+echo   setup.bat [--skip-download] [--yes] [COSYVOICE_REPO] [BAYAN_REPO]
+echo.
+echo Examples:
+echo   setup.bat
+echo   setup.bat --skip-download
+echo   setup.bat --yes
+echo   setup.bat "C:\CosyVoice" "C:\BayanSynthTTS"
+exit /b 0
+
+:usage_error
+echo Usage:
+echo   setup.bat [--skip-download] [--yes] [COSYVOICE_REPO] [BAYAN_REPO]
+pause
+exit /b 1

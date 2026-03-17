@@ -22,7 +22,8 @@ import {
   selectedNodeAtom,
   updateNodeAtom,
 } from '../store/atoms';
-import { uploadVoice, listVoices, deleteVoice, openVoicesFolder, synthesize as synthesizeApi } from '../api';
+import { uploadVoice, listVoices, deleteVoice, openVoicesFolder, synthesize as synthesizeApi, getVoicePreviewUrl } from '../api';
+import { blobToWavFile } from '../utils/audioWav';
 
 // Voice clone panel open state (module-level for simplicity)
 import { atom } from 'jotai';
@@ -48,6 +49,7 @@ export default function VoiceClonePanel() {
   const [testing, setTesting] = useState(false);
   const [testText, setTestText] = useState('مَرْحَباً بِكُمْ فِي اخْتِبَارِ الصَّوْتِ');
   const [savedVoicePath, setSavedVoicePath] = useState(null);
+  const [activeAudioKey, setActiveAudioKey] = useState(null);
 
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -55,14 +57,63 @@ export default function VoiceClonePanel() {
   const audioPlayerRef = useRef(null);
   const streamRef = useRef(null);
 
+  const stopActiveAudio = useCallback((statusMessage = null) => {
+    const audio = audioPlayerRef.current;
+    if (audio) {
+      audio.onended = null;
+      audio.onerror = null;
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {}
+      if (audio.__revokeUrl) {
+        URL.revokeObjectURL(audio.__revokeUrl);
+      }
+      audioPlayerRef.current = null;
+    }
+    setActiveAudioKey(null);
+    if (statusMessage) setStatus(statusMessage);
+  }, [setStatus]);
+
   // Cleanup on unmount/close
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
       if (audioUrl) URL.revokeObjectURL(audioUrl);
+      stopActiveAudio();
     };
-  }, [audioUrl]);
+  }, [audioUrl, stopActiveAudio]);
+
+  const playManagedAudio = useCallback(async ({ key, url, revokeUrl = false, startStatus, errorStatus }) => {
+    stopActiveAudio();
+
+    const audio = new Audio(url);
+    audio.__revokeUrl = revokeUrl ? url : null;
+    audioPlayerRef.current = audio;
+    setActiveAudioKey(key);
+    audio.onended = () => {
+      if (audioPlayerRef.current === audio) {
+        audioPlayerRef.current = null;
+      }
+      if (audio.__revokeUrl) {
+        URL.revokeObjectURL(audio.__revokeUrl);
+      }
+      setActiveAudioKey(null);
+    };
+    audio.onerror = () => {
+      if (audioPlayerRef.current === audio) {
+        audioPlayerRef.current = null;
+      }
+      if (audio.__revokeUrl) {
+        URL.revokeObjectURL(audio.__revokeUrl);
+      }
+      setActiveAudioKey(null);
+      setStatus(errorStatus);
+    };
+    await audio.play();
+    setStatus(startStatus);
+  }, [setStatus, stopActiveAudio]);
 
   // Start recording
   const startRecording = useCallback(async () => {
@@ -157,13 +208,17 @@ export default function VoiceClonePanel() {
   // Play preview
   const playPreview = useCallback(() => {
     if (!audioUrl) return;
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.pause();
+    if (activeAudioKey === 'recording' && audioPlayerRef.current) {
+      stopActiveAudio('Stopped recording preview');
+      return;
     }
-    const audio = new Audio(audioUrl);
-    audioPlayerRef.current = audio;
-    audio.play();
-  }, [audioUrl]);
+    playManagedAudio({
+      key: 'recording',
+      url: audioUrl,
+      startStatus: 'Playing recording preview...',
+      errorStatus: 'Recording preview failed',
+    }).catch((err) => setStatus(`Recording preview failed: ${err.message}`));
+  }, [activeAudioKey, audioUrl, playManagedAudio, setStatus, stopActiveAudio]);
 
   // Upload file instead of recording
   const handleFileUpload = useCallback((e) => {
@@ -186,11 +241,7 @@ export default function VoiceClonePanel() {
     setStatus('Saving voice to library...');
     try {
       const name = voiceName.trim() || `voice_${Date.now()}`;
-      // Always use .wav as the file extension — the backend re-encodes everything
-      // to 24-kHz PCM WAV and saves with .wav, regardless of the source format
-      // (WebM, Opus, MP3 …).  Using .wav avoids a naming mismatch where the
-      // saved file has a .webm extension but is actually a WAV.
-      const file = new File([audioBlob], `${name}.wav`, { type: audioBlob.type });
+      const file = await blobToWavFile(audioBlob, name);
       const res = await uploadVoice(file);
       setSavedVoicePath(res.filename);
 
@@ -222,16 +273,26 @@ export default function VoiceClonePanel() {
     }
   }, [savedVoicePath, setVoices, setStatus]);
 
-  // Play a voice from the library (streamed from /voices/)
-  const playLibraryVoice = useCallback((voiceFile) => {
-    if (audioPlayerRef.current) audioPlayerRef.current.pause();
-    const audio = new Audio(`/voices/${encodeURIComponent(voiceFile)}`);
-    audioPlayerRef.current = audio;
-    audio.play().catch(() => {
-      // Fallback: can't preview (built-in voices aren't served via /voices/)
-      setStatus(`Cannot preview built-in voice: ${voiceFile}`);
-    });
-  }, [setStatus]);
+  // Play a voice from the library using the actual stored reference file.
+  const playLibraryVoice = useCallback(async (voiceFile) => {
+    if (!voiceFile) return;
+    const key = `library:${voiceFile}`;
+    if (activeAudioKey === key && audioPlayerRef.current) {
+      stopActiveAudio(`Stopped preview: ${voiceFile}`);
+      return;
+    }
+
+    try {
+      await playManagedAudio({
+        key,
+        url: getVoicePreviewUrl(voiceFile),
+        startStatus: `Previewing voice: ${voiceFile}`,
+        errorStatus: `Cannot preview voice: ${voiceFile}`,
+      });
+    } catch {
+      setStatus(`Cannot preview voice: ${voiceFile}`);
+    }
+  }, [activeAudioKey, playManagedAudio, setStatus, stopActiveAudio]);
 
   // Apply a library voice to selected node (from the library browser)
   const applyLibraryVoice = useCallback((voiceFile) => {
@@ -252,7 +313,12 @@ export default function VoiceClonePanel() {
 
   // Test synthesize with the new voice
   const handleTest = useCallback(async () => {
-    if (!savedVoicePath || testing) return;
+    if (!savedVoicePath) return;
+    if (activeAudioKey === 'test' && audioPlayerRef.current) {
+      stopActiveAudio('Stopped voice clone test');
+      return;
+    }
+    if (testing) return;
     setTesting(true);
     setStatus('Testing voice clone...');
     try {
@@ -263,15 +329,19 @@ export default function VoiceClonePanel() {
         seed: 42,
         autoTashkeel: true,
       });
-      const audio = new Audio(result.url);
-      audio.play();
-      audio.onended = () => setTesting(false);
-      setStatus(`Voice clone test: ${result.duration.toFixed(1)}s generated`);
+      await playManagedAudio({
+        key: 'test',
+        url: result.url,
+        revokeUrl: true,
+        startStatus: `Voice clone test: ${result.duration.toFixed(1)}s generated`,
+        errorStatus: 'Voice clone test playback failed',
+      });
     } catch (err) {
       setStatus(`Test failed: ${err.message}`);
+    } finally {
       setTesting(false);
     }
-  }, [savedVoicePath, testing, testText, setStatus]);
+  }, [activeAudioKey, playManagedAudio, savedVoicePath, setStatus, stopActiveAudio, testText, testing]);
 
   // Clear recording
   const handleClear = useCallback(() => {
@@ -348,7 +418,7 @@ export default function VoiceClonePanel() {
               <h3>Step 2 — Preview</h3>
               <div className="voice-clone-actions">
                 <button className="btn btn-sm" onClick={playPreview}>
-                  <Play size={14} strokeWidth={2} /> Play Recording
+                  {activeAudioKey === 'recording' ? <Square size={14} strokeWidth={2} /> : <Play size={14} strokeWidth={2} />} {activeAudioKey === 'recording' ? 'Stop Preview' : 'Play Recording'}
                 </button>
                 <button className="btn btn-sm" onClick={handleClear}>
                   <Trash2 size={14} strokeWidth={1.5} /> Clear
@@ -421,8 +491,8 @@ export default function VoiceClonePanel() {
                   onClick={handleTest}
                   disabled={testing}
                 >
-                  <Volume2 size={14} strokeWidth={1.5} />
-                  {testing ? 'Generating...' : 'Test Synthesize'}
+                  {activeAudioKey === 'test' ? <Square size={14} strokeWidth={1.5} /> : <Volume2 size={14} strokeWidth={1.5} />}
+                  {testing ? 'Generating...' : activeAudioKey === 'test' ? 'Stop Test' : 'Test Synthesize'}
                 </button>
                 {selectedNode && (
                   <button className="btn btn-sm" onClick={applyToNode}>
@@ -468,10 +538,10 @@ export default function VoiceClonePanel() {
                         )}
                         <button
                           className="btn btn-sm"
-                          onClick={() => playLibraryVoice(label)}
+                          onClick={() => playLibraryVoice(v)}
                           title="Preview voice"
                         >
-                          <Play size={12} strokeWidth={2} />
+                          {activeAudioKey === `library:${v}` ? <Square size={12} strokeWidth={2} /> : <Play size={12} strokeWidth={2} />}
                         </button>
                         <button
                           className="btn btn-sm btn-danger-sm"

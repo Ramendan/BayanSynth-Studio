@@ -7,7 +7,7 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
-import { parameterDrawerOpenAtom, playheadAtom } from '../../store/atoms';
+import { parameterDrawerOpenAtom, playheadAtom, paramRelativeViewAtom } from '../../store/atoms';
 import { HEADER_WIDTH, PIANO_KEY_WIDTH } from '../../utils/constants';
 
 const LANE_OFFSET = HEADER_WIDTH + PIANO_KEY_WIDTH; // 220px — aligns lane content with piano roll grid
@@ -32,6 +32,7 @@ const MAX_HEIGHT = 350;
 
 export default function ParameterEditor({ zoom = 1, panX = 0 }) {
   const [isOpen, setIsOpen] = useAtom(parameterDrawerOpenAtom);
+  const [relativeView, setRelativeView] = useAtom(paramRelativeViewAtom);
   const [activeTab, setActiveTab] = useState('dyn');
   const playhead = useAtomValue(playheadAtom);
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
@@ -98,7 +99,7 @@ export default function ParameterEditor({ zoom = 1, panX = 0 }) {
         </button>
 
         {isOpen && (
-          <div className="param-tabs">
+          <div className="param-tabs" style={{ width: '100%' }}>
             {TABS.map(tab => (
               <button
                 key={tab.id}
@@ -113,6 +114,22 @@ export default function ParameterEditor({ zoom = 1, panX = 0 }) {
                 {tab.label}
               </button>
             ))}
+
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 11, color: '#777' }}>View</span>
+              <button
+                className="param-lane-reset-inline"
+                title={relativeView ? 'Switch to timeline view' : 'Switch to relative view'}
+                onClick={() => setRelativeView(v => !v)}
+                style={{
+                  color: relativeView ? '#00f0ff' : undefined,
+                  borderColor: relativeView ? '#00f0ff55' : undefined,
+                  marginRight: 4,
+                }}
+              >
+                {relativeView ? '◉ relative' : '◯ timeline'}
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -120,8 +137,8 @@ export default function ParameterEditor({ zoom = 1, panX = 0 }) {
       {/* Lane content */}
       {isOpen && (
         <div className="param-content">
-          {activeTab === 'dyn' && <DynLane width={laneWidth} zoom={zoom} panX={panX} offsetX={LANE_OFFSET} playhead={playhead} />}
-          {activeTab === 'pit' && <PitLane width={laneWidth} zoom={zoom} panX={panX} offsetX={LANE_OFFSET} playhead={playhead} />}
+          {activeTab === 'dyn' && <DynLane width={laneWidth} zoom={zoom} panX={panX} offsetX={LANE_OFFSET} playhead={playhead} relativeView={relativeView} />}
+          {activeTab === 'pit' && <PitLane width={laneWidth} zoom={zoom} panX={panX} offsetX={LANE_OFFSET} playhead={playhead} relativeView={relativeView} />}
           {activeTab === 'vib' && <VibLane width={laneWidth} />}
           {activeTab === 'fx'  && <EffectsLane width={laneWidth} />}
           {activeTab === 'tr'  && <TransitionsLane width={laneWidth} />}
