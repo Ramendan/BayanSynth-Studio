@@ -324,7 +324,7 @@ export default function PianoRoll() {
     const ghostW = (dur * bpm / 60) * ppb;
 
     setDragGhost({ x: ghostX, y: ghostY, w: ghostW, h: NOTE_HEIGHT });
-  }, [screenToGrid, bpm, snapDivision, ppb, pan.x, pan.y, allNodes, setDragGhost, isRtl, gridToScreenX]);
+  }, [screenToGrid, bpm, snapDivision, ppb, pan.x, pan.y, allNodes, setDragGhost, gridToScreenX]);
 
   // Handle node drag end — snap to grid, update start_time and pitch_shift
   const handleNodeDragEnd = useCallback((nodeId, e) => {
@@ -347,7 +347,7 @@ export default function PianoRoll() {
 
     pushHistory();
     updateNode({ id: nodeId, start_time: snappedTime, pitch_shift: newPitchShift });
-  }, [bpm, snapDivision, screenToGrid, pushHistory, updateNode, setDragGhost, ppb, pan.x, pan.y, allNodes, isRtl, gridToScreenX]);
+  }, [bpm, snapDivision, screenToGrid, pushHistory, updateNode, setDragGhost, ppb, pan.x, pan.y, allNodes, gridToScreenX]);
 
   // Handle left-edge trim
   const handleTrimLeft = useCallback((nodeId, deltaPixels) => {
@@ -401,7 +401,7 @@ export default function PianoRoll() {
     pushHistory();
     splitNode({ nodeId, splitTime });
     setStatus('Split note');
-  }, [allNodes, bpm, ppb, pan.x, pushHistory, splitNode, setStatus, isRtl, gridToScreenX]);
+  }, [allNodes, bpm, ppb, pan.x, pushHistory, splitNode, setStatus, gridToScreenX]);
 
   // Handle playhead seek (from TimeRuler click)
   const handleRulerSeek = useCallback((timeSec) => {
